@@ -244,10 +244,6 @@ glm::vec3 interpolateNormal(Scene &scene, int x, int y, int z, int isorange, int
     }
 }
 
-glm::vec3 interpolateTransvoxelEdge() {
-    
-}
-
 void setupVolumeData(Scene &scene) {
     OSN::Noise<3> noise(time(0));
     for (int x = 0; x < VOLUME_SIZE; x++) {
@@ -309,7 +305,8 @@ void setupVolumeData(Scene &scene) {
                 }
                 
                 /* Find the vertices where the surface intersects the cube for each edge */
-                std::vector<glm::vec3> vertices;
+                std::vector<glm::vec3> edgeVertices;
+                std::vector<glm::vec3> edgeNormals;
                 for (auto vertex : vertexData) {
                     if (!vertex) break;
                     unsigned char corner1 = (vertex >> 4) & 0x000F;
@@ -318,42 +315,15 @@ void setupVolumeData(Scene &scene) {
                     float isovalue2 = scene.volumeData[cornerIndices[corner2]].isovalue;
                     float t = isovalue2 / (isovalue2 - isovalue1);
                     glm::vec3 vertexPos = cornerPositions[corner1] * t + cornerPositions[corner2] * (1-t);
-                    vertices.push_back(vertexPos);
+                    edgeVertices.push_back(vertexPos);
+                    edgeNormals.push_back(interpolateNormal(scene, x, y, z, isorange, corner1, corner2));
                 }
                 
                 /* Create the triangles */
                 for (auto vertexIndex : cellData.vertexIndex) {
                     for (int i = 0; i < 3; i++) {
-                        trianglesVector.push_back(vertices[vertexIndex][i]);
-                    }
-                }
-                
-                
-                
-                
-                
-                
-                
-                
-                /* Find the vertices where the surface intersects the cube for each edge */
-//                glm::vec3 vertlist[12];
-                glm::vec3 normlist[12];
-                for (int i = 0; i < 12; i++) {
-                    if (edgeTable[cubeIndex] & (1 << i)) {
-//                        VoxelCube voxel1 = { cornerPositions[edgeVertices[i][0]], scene.volumeData[cornerIndices[edgeVertices[i][0]]].isovalue };
-//                        VoxelCube voxel2 = { cornerPositions[edgeVertices[i][1]], scene.volumeData[cornerIndices[edgeVertices[i][1]]].isovalue };
-//                        vertlist[i] = interpolateVertex(isorange, voxel1, voxel2);
-                        normlist[i] = interpolateNormal(scene, x, y, z, isorange, edgeVertices[i][0], edgeVertices[i][1]);
-                    }
-                }
-                
-                /* Create the triangles */
-                for (int i = 0; triTable[cubeIndex][i] != -1; i += 3) {
-                    for (int j = 0; j < 3; j++) {
-                        for (int k = 0; k < 3; k++) {
-//                            trianglesVector.push_back(vertlist[triTable[cubeIndex][i+j]][k]);
-                            normalsVector.push_back(normlist[triTable[cubeIndex][i+j]][k]);
-                        }
+                        trianglesVector.push_back(edgeVertices[vertexIndex][i]);
+                        normalsVector.push_back(edgeNormals[vertexIndex][i]);
                     }
                 }
             }
