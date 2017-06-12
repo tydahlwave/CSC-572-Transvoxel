@@ -23,9 +23,9 @@
 #define CAMERA_SPEED 0.2
 #define CAMERA_STOPPED_THRESHOLD 0.1
 #define NUM_MODELS 5
-#define VOLUME_SIZE 2
+#define VOLUME_SIZE 64
 #define POINT_SIZE 50
-#define SPHERE_RADIUS 0.5
+#define SPHERE_RADIUS 30
 
 const int mWidth = 1080;
 const int mHeight = 920;

@@ -303,12 +303,15 @@ void setupVolumeData(Scene &scene) {
                 /* Transvoxel */
                 auto cellClass = regularCellClass[cubeIndex];
                 auto cellData = regularCellData[cellClass];
-                auto vertexData = regularVertexData[cubeIndex];
+                unsigned short vertexData[12] = {0};
+                for (int i = 0; i < 12; i++) {
+                    vertexData[i] = regularVertexData[cubeIndex][i];
+                }
                 
                 /* Find the vertices where the surface intersects the cube for each edge */
                 std::vector<glm::vec3> vertices;
-                for (auto vertexIndex : cellData.vertexIndex) {
-                    auto vertex = vertexData[vertexIndex];
+                for (auto vertex : vertexData) {
+                    if (!vertex) break;
                     unsigned char corner1 = (vertex >> 4) & 0x000F;
                     unsigned char corner2 = vertex & 0x000F;
                     float isovalue1 = scene.volumeData[cornerIndices[corner1]].isovalue;
