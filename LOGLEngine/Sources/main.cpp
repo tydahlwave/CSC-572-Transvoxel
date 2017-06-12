@@ -24,7 +24,10 @@ std::vector<float> trianglesVector;
 std::vector<float> normalsVector;
 float voxelScale = 1.0f;
 float t = 0;
-int shapeIndex = 0;
+int shapeIndex = 1;
+float cameraSpeedFactor = 1.0f;
+bool isRotating = true;
+bool isWireFrame = false;
 
 typedef struct {
     glm::vec3 pos;
@@ -54,40 +57,57 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else if (key == GLFW_KEY_SPACE) {
             shapeIndex += 1;
             resetVolumeData(*tempScene);
+        } else if (key == GLFW_KEY_R) {
+            isRotating = !isRotating;
+        } else if (key == GLFW_KEY_T) {
+            isWireFrame = !isWireFrame;
+            glPolygonMode(GL_FRONT_AND_BACK, isWireFrame ? GL_LINE : GL_FILL);
         } else if (key == GLFW_KEY_W) {
-            camera.velW = -CAMERA_SPEED;
+            camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_S) {
-            camera.velW = CAMERA_SPEED;
+            camera.velW = CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_A) {
-            camera.velU = -CAMERA_SPEED;
+            camera.velU = -CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_D) {
-            camera.velU = CAMERA_SPEED;
+            camera.velU = CAMERA_SPEED * cameraSpeedFactor;
+        } else if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
+            cameraSpeedFactor = 3.0f;
+            if (abs(camera.velU) > CAMERA_STOPPED_THRESHOLD)
+                camera.velU = camera.velU / abs(camera.velU) * CAMERA_SPEED * cameraSpeedFactor;
+            if (abs(camera.velW) > CAMERA_STOPPED_THRESHOLD)
+                camera.velW = camera.velW / abs(camera.velW) * CAMERA_SPEED * cameraSpeedFactor;
         }
     } else if (action == GLFW_RELEASE) {
         if (key == GLFW_KEY_W) {
             if (camera.velW < -CAMERA_STOPPED_THRESHOLD) {
                 camera.velW = 0;
             } else {
-                camera.velW = CAMERA_SPEED;
+                camera.velW = CAMERA_SPEED * cameraSpeedFactor;
             }
         } else if (key == GLFW_KEY_S) {
             if (camera.velW > CAMERA_STOPPED_THRESHOLD) {
                 camera.velW = 0;
             } else {
-                camera.velW = -CAMERA_SPEED;
+                camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
             }
         } else if (key == GLFW_KEY_A) {
             if (camera.velU < -CAMERA_STOPPED_THRESHOLD) {
                 camera.velU = 0;
             } else {
-                camera.velU = CAMERA_SPEED;
+                camera.velU = CAMERA_SPEED * cameraSpeedFactor;
             }
         } else if (key == GLFW_KEY_D) {
             if (camera.velU > CAMERA_STOPPED_THRESHOLD) {
                 camera.velU = 0;
             } else {
-                camera.velU = -CAMERA_SPEED;
+                camera.velU = -CAMERA_SPEED * cameraSpeedFactor;
             }
+        } else if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
+            cameraSpeedFactor = 1.0f;
+            if (abs(camera.velU) > CAMERA_STOPPED_THRESHOLD)
+                camera.velU = camera.velU / abs(camera.velU) * CAMERA_SPEED * cameraSpeedFactor;
+            if (abs(camera.velW) > CAMERA_STOPPED_THRESHOLD)
+                camera.velW = camera.velW / abs(camera.velW) * CAMERA_SPEED * cameraSpeedFactor;
         }
     }
 }
@@ -389,8 +409,9 @@ void drawVolumeData(float aspect) {
     glDrawArrays(GL_TRIANGLES, 0, trianglesVector.size());
     glBindVertexArray(0);
     
-    
-    t += 0.01;
+    if (isRotating) {
+        t += 0.01;
+    }
 }
 
 static void updateCamera() {
