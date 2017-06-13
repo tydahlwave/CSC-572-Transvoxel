@@ -25,6 +25,7 @@ std::vector<float> normalsVector;
 float t = 0;
 int shapeIndex = 1;
 int voxelScale = 2;
+int editingIsovalue = 10;
 float cameraSpeedFactor = 1.0f;
 bool isRotating = false;
 bool isWireFrame = false;
@@ -203,6 +204,8 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else if (key == GLFW_KEY_O) {
             voxelScale *= 2;
             setupVolumeTriangles(*tempScene);
+        } else if (key == GLFW_KEY_Q) {
+            editingIsovalue = -editingIsovalue;
         } else if (key == GLFW_KEY_W) {
             camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_S) {
@@ -383,7 +386,7 @@ bool hitOctreeNode(const Ray &ray, glm::vec3 min, glm::vec3 max) {
         int x = (int)min[0];
         int y = (int)min[1];
         int z = (int)min[2];
-        updateIsovalues(x, y, z, 10, 2);
+        updateIsovalues(x, y, z, editingIsovalue, 2);
         return true;
     }
     
