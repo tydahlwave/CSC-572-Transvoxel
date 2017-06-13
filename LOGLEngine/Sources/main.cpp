@@ -210,6 +210,8 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else if (key == GLFW_KEY_L) {
             lodSmoothing = !lodSmoothing;
             setupVolumeTriangles(*tempScene);
+        } else if (key == GLFW_KEY_P) {
+            setupVolumeTriangles(*tempScene);
         } else if (key == GLFW_KEY_W) {
             camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_S) {
@@ -588,7 +590,8 @@ void computeTrianglesForVoxel(Scene &scene, int x, int y, int z) {
     /* Find the vertices where the surface intersects the cube for each edge */
     std::vector<glm::vec3> edgeVertices;
     std::vector<glm::vec3> edgeNormals;
-    for (auto vertex : vertexData) {
+    for (int i = 0; i < cellData.GetVertexCount(); i++) {
+        auto vertex = vertexData[i];
         if (!vertex) break;
         unsigned char corner1 = (vertex >> 4) & 0x000F;
         unsigned char corner2 = vertex & 0x000F;
@@ -629,12 +632,371 @@ void computeTrianglesForVoxel(Scene &scene, int x, int y, int z) {
     }
     
     /* Create the triangles */
-    for (auto vertexIndex : cellData.vertexIndex) {
-        for (int i = 0; i < 3; i++) {
-            trianglesVector.push_back(edgeVertices[vertexIndex][i]);
-            normalsVector.push_back(edgeNormals[vertexIndex][i]);
+    for (int i = 0; i < cellData.GetTriangleCount() * 3; i++) {
+        auto vertexIndex = cellData.vertexIndex[i];
+        for (int j = 0; j < 3; j++) {
+            trianglesVector.push_back(edgeVertices[vertexIndex][j]);
+            normalsVector.push_back(edgeNormals[vertexIndex][j]);
         }
     }
+}
+
+void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
+    // Which axes contains the higher LOD. Bit corresponds to (00-z-y-xzyx)
+    int axis = 1 << 5;
+    
+    glm::vec3 cornerPositions[8] = {
+        glm::vec3(x-voxelScale, y-voxelScale, z-voxelScale),
+        glm::vec3(x,            y-voxelScale, z-voxelScale),
+        glm::vec3(x-voxelScale, y,            z-voxelScale),
+        glm::vec3(x,            y,            z-voxelScale),
+        glm::vec3(x-voxelScale, y-voxelScale, z),
+        glm::vec3(x,            y-voxelScale, z),
+        glm::vec3(x-voxelScale, y,            z),
+        glm::vec3(x,            y,            z)
+    };
+    
+    int cornerIndices[8] = {
+        (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z-voxelScale),
+        (x           )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z-voxelScale),
+        (x           )*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z),
+        (x           )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z),
+        (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z),
+        (x           )*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z)
+    };
+    
+    unsigned long cubeIndex = 0;
+    float isorange = 0;
+    if ((scene.volumeData[cornerIndices[0]].isovalue) <= isorange) cubeIndex |= 1;
+    if ((scene.volumeData[cornerIndices[1]].isovalue) <= isorange) cubeIndex |= 2;
+    if ((scene.volumeData[cornerIndices[2]].isovalue) <= isorange) cubeIndex |= 4;
+    if ((scene.volumeData[cornerIndices[3]].isovalue) <= isorange) cubeIndex |= 8;
+    if ((scene.volumeData[cornerIndices[4]].isovalue) <= isorange) cubeIndex |= 16;
+    if ((scene.volumeData[cornerIndices[5]].isovalue) <= isorange) cubeIndex |= 32;
+    if ((scene.volumeData[cornerIndices[6]].isovalue) <= isorange) cubeIndex |= 64;
+    if ((scene.volumeData[cornerIndices[7]].isovalue) <= isorange) cubeIndex |= 128;
+    
+    /* Cube is entirely in/out of the surface */
+    if (edgeTable[cubeIndex] == 0) return;
+    
+    /* Transvoxel */
+    auto cellClass = regularCellClass[cubeIndex];
+    auto cellData = regularCellData[cellClass];
+    unsigned short vertexData[12] = {0};
+    for (int i = 0; i < 12; i++) {
+        vertexData[i] = regularVertexData[cubeIndex][i];
+    }
+    
+    /* Find the vertices where the surface intersects the cube for each edge */
+    std::vector<glm::vec3> edgeVertices;
+    std::vector<glm::vec3> edgeNormals;
+    for (int i = 0; i < cellData.GetVertexCount(); i++) {
+        auto vertex = vertexData[i];
+        if (!vertex) break;
+        unsigned char corner1 = (vertex >> 4) & 0x000F;
+        unsigned char corner2 = vertex & 0x000F;
+        float isovalue1 = scene.volumeData[cornerIndices[corner1]].isovalue;
+        float isovalue2 = scene.volumeData[cornerIndices[corner2]].isovalue;
+        glm::vec3 cornerPos1 = cornerPositions[corner1];
+        glm::vec3 cornerPos2 = cornerPositions[corner2];
+        if (lodSmoothing) {
+            int lod = voxelScale;
+            while (lod > 1) {
+                glm::vec3 centerVoxelPosition = (cornerPos1 + cornerPos2) / 2.0f;
+                int centerVoxelIndex = (int)centerVoxelPosition[0] * VOLUME_SIZE * VOLUME_SIZE + (int)centerVoxelPosition[1] * VOLUME_SIZE + (int)centerVoxelPosition[2];
+                Voxel centerVoxel = scene.volumeData[centerVoxelIndex];
+                if (centerVoxel.isovalue <= 0) {
+                    if (isovalue1 <= 0) {
+                        isovalue1 = centerVoxel.isovalue;
+                        cornerPos1 = centerVoxelPosition;
+                    } else {
+                        isovalue2 = centerVoxel.isovalue;
+                        cornerPos2 = centerVoxelPosition;
+                    }
+                } else {
+                    if (isovalue1 > 0) {
+                        isovalue1 = centerVoxel.isovalue;
+                        cornerPos1 = centerVoxelPosition;
+                    } else {
+                        isovalue2 = centerVoxel.isovalue;
+                        cornerPos2 = centerVoxelPosition;
+                    }
+                }
+                lod /= 2;
+            }
+        }
+        // Scale the normal cell to be half the volume size along the transvoxel axes
+        // TODO: Implement the other cases
+        if (axis == 1 << 5) { // Negative z axis
+            if (corner1 < 4) {
+                cornerPos1.z += voxelScale * 0.5f;
+            }
+            if (corner2 < 4) {
+                cornerPos2.z += voxelScale * 0.5f;
+            }
+        }
+        float t = isovalue2 / (isovalue2 - isovalue1);
+        glm::vec3 vertexPos = cornerPos1 * t + cornerPos2 * (1-t);
+        edgeVertices.push_back(vertexPos);
+        edgeNormals.push_back(interpolateNormal(scene, x, y, z, isorange, corner1, corner2));
+    }
+    
+    /* Create the triangles */
+    for (int i = 0; i < cellData.GetTriangleCount() * 3; i++) {
+        auto vertexIndex = cellData.vertexIndex[i];
+        for (int j = 0; j < 3; j++) {
+            trianglesVector.push_back(edgeVertices[vertexIndex][j]);
+            normalsVector.push_back(edgeNormals[vertexIndex][j]);
+        }
+    }
+    
+    
+    
+    
+    
+    // TRANSVOXEL PART (-z axis specific)
+    glm::vec3 transCornerPositions[13] = {
+        glm::vec3(x-voxelScale,   y-voxelScale,   z-voxelScale),
+        glm::vec3(x-voxelScale/2, y-voxelScale,   z-voxelScale),
+        glm::vec3(x,              y-voxelScale,   z-voxelScale),
+        glm::vec3(x-voxelScale,   y-voxelScale/2, z-voxelScale),
+        glm::vec3(x-voxelScale/2, y-voxelScale/2, z-voxelScale),
+        glm::vec3(x,              y-voxelScale/2, z-voxelScale),
+        glm::vec3(x-voxelScale,   y,              z-voxelScale),
+        glm::vec3(x-voxelScale/2, y,              z-voxelScale),
+        glm::vec3(x,              y,              z-voxelScale),
+        glm::vec3(x-voxelScale,   y-voxelScale,   z-voxelScale),
+        glm::vec3(x,              y-voxelScale,   z-voxelScale),
+        glm::vec3(x-voxelScale,   y,              z-voxelScale),
+        glm::vec3(x,              y,              z-voxelScale),
+    };
+    
+    std::cout << "Trans Corner Positions:" << std::endl;
+    for (int i = 0; i < 13; i++) {
+        std::cout << i << ": (" << transCornerPositions[i][0] << ", " << transCornerPositions[i][1] << ", " << transCornerPositions[i][2] << ")" << std::endl;
+    }
+    
+//    glm::vec3 transCornerPositions[13] = {
+//        glm::vec3(x-voxelScale,   y-voxelScale,   z),
+//        glm::vec3(x-voxelScale/2, y-voxelScale,   z),
+//        glm::vec3(x,              y-voxelScale,   z),
+//        glm::vec3(x-voxelScale,   y-voxelScale/2, z),
+//        glm::vec3(x-voxelScale/2, y-voxelScale/2, z),
+//        glm::vec3(x,              y-voxelScale/2, z),
+//        glm::vec3(x-voxelScale,   y,              z),
+//        glm::vec3(x-voxelScale/2, y,              z),
+//        glm::vec3(x,              y,              z),
+//        glm::vec3(x-voxelScale,   y-voxelScale,   z),
+//        glm::vec3(x,              y-voxelScale,   z),
+//        glm::vec3(x-voxelScale,   y,              z),
+//        glm::vec3(x,              y,              z),
+//    };
+
+//    glm::vec3 transCornerPositions[13] = {
+//        glm::vec3(x,              y-voxelScale,   z-voxelScale),
+//        glm::vec3(x-voxelScale/2, y-voxelScale,   z-voxelScale),
+//        glm::vec3(x-voxelScale,   y-voxelScale,   z-voxelScale),
+//        glm::vec3(x,              y-voxelScale/2, z-voxelScale),
+//        glm::vec3(x-voxelScale/2, y-voxelScale/2, z-voxelScale),
+//        glm::vec3(x-voxelScale,   y-voxelScale/2, z-voxelScale),
+//        glm::vec3(x,              y,              z-voxelScale),
+//        glm::vec3(x-voxelScale/2, y,              z-voxelScale),
+//        glm::vec3(x-voxelScale,   y,              z-voxelScale),
+//        glm::vec3(x,              y-voxelScale,   z-voxelScale),
+//        glm::vec3(x-voxelScale,   y-voxelScale,   z-voxelScale),
+//        glm::vec3(x,              y,              z-voxelScale),
+//        glm::vec3(x-voxelScale,   y,              z-voxelScale),
+//    };
+    
+    int transCornerIndices[13] = {
+        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
+        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale)
+    };
+    
+//    int transCornerIndices[13] = {
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
+//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z),
+//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
+//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z)
+//    };
+    
+//    int transCornerIndices[13] = {
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
+//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
+//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale)
+//    };
+    
+    unsigned long transCubeIndex = 0;
+    if ((scene.volumeData[transCornerIndices[0]].isovalue) <= isorange) transCubeIndex |= 1;
+    if ((scene.volumeData[transCornerIndices[1]].isovalue) <= isorange) transCubeIndex |= 2;
+    if ((scene.volumeData[transCornerIndices[2]].isovalue) <= isorange) transCubeIndex |= 4;
+    if ((scene.volumeData[transCornerIndices[3]].isovalue) <= isorange) transCubeIndex |= 128;
+    if ((scene.volumeData[transCornerIndices[4]].isovalue) <= isorange) transCubeIndex |= 256;
+    if ((scene.volumeData[transCornerIndices[5]].isovalue) <= isorange) transCubeIndex |= 8;
+    if ((scene.volumeData[transCornerIndices[6]].isovalue) <= isorange) transCubeIndex |= 64;
+    if ((scene.volumeData[transCornerIndices[7]].isovalue) <= isorange) transCubeIndex |= 32;
+    if ((scene.volumeData[transCornerIndices[8]].isovalue) <= isorange) transCubeIndex |= 16;
+
+    /* Cube is entirely in/out of the surface */
+    if (transCubeIndex == 0 || transCubeIndex == 511) return;
+    
+    /* Transvoxel */
+    auto transCellClass = transitionCellClass[transCubeIndex];
+    auto transCellData = transitionCellData[transCellClass & 0x7F];
+    unsigned short transVertexData[12] = {0};
+    for (int i = 0; i < 12; i++) {
+        transVertexData[i] = transitionVertexData[transCubeIndex][i];
+    }
+    
+    /* Find the vertices where the surface intersects the cube for each edge */
+    std::vector<glm::vec3> transEdgeVertices;
+    std::vector<glm::vec3> transEdgeNormals;
+    std::cout << "Vertex/Triangle Count: " << transCellData.GetVertexCount() << " / " << transCellData.GetTriangleCount() << std::endl;
+    for (int i = 0; i < transCellData.GetVertexCount(); i++) {
+        unsigned short vertex = transVertexData[i];
+        if (!vertex) break;
+        unsigned char corner1 = (vertex >> 4) & 0x000F;
+        unsigned char corner2 = vertex & 0x000F;
+        std::cout << "Corners: (" << (int)corner1 << "," << (int)corner2 << ")";
+        float isovalue1 = scene.volumeData[transCornerIndices[corner1]].isovalue;
+        float isovalue2 = scene.volumeData[transCornerIndices[corner2]].isovalue;
+        std::cout << " Iso: (" << isovalue1 << "," << isovalue2 << ")";
+        glm::vec3 cornerPos1 = transCornerPositions[corner1];
+        glm::vec3 cornerPos2 = transCornerPositions[corner2];
+        if (lodSmoothing) {
+            int lod = voxelScale;
+            while (lod > 1) {
+                glm::vec3 centerVoxelPosition = (cornerPos1 + cornerPos2) / 2.0f;
+                int centerVoxelIndex = (int)centerVoxelPosition[0] * VOLUME_SIZE * VOLUME_SIZE + (int)centerVoxelPosition[1] * VOLUME_SIZE + (int)centerVoxelPosition[2];
+                Voxel centerVoxel = scene.volumeData[centerVoxelIndex];
+                if (centerVoxel.isovalue < 0) {
+                    if (isovalue1 < 0) {
+                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                            if (lod > 2) {
+                                isovalue1 = centerVoxel.isovalue;
+                                cornerPos1 = centerVoxelPosition;
+                            }
+                        } else { // Else it's ok for LOD to be 2
+                            isovalue1 = centerVoxel.isovalue;
+                            cornerPos1 = centerVoxelPosition;
+                        }
+                    } else {
+                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                            if (lod > 2) {
+                                isovalue2 = centerVoxel.isovalue;
+                                cornerPos2 = centerVoxelPosition;
+                            }
+                        } else { // Else it's ok for LOD to be 2
+                            isovalue2 = centerVoxel.isovalue;
+                            cornerPos2 = centerVoxelPosition;
+                        }
+                    }
+                } else {
+                    if (isovalue1 >= 0) {
+                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                            if (lod > 2) {
+                                isovalue1 = centerVoxel.isovalue;
+                                cornerPos1 = centerVoxelPosition;
+                            }
+                        } else { // Else it's ok for LOD to be 2
+                            isovalue1 = centerVoxel.isovalue;
+                            cornerPos1 = centerVoxelPosition;
+                        }
+                    } else {
+                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                            if (lod > 2) {
+                                isovalue2 = centerVoxel.isovalue;
+                                cornerPos2 = centerVoxelPosition;
+                            }
+                        } else { // Else it's ok for LOD to be 2
+                            isovalue2 = centerVoxel.isovalue;
+                            cornerPos2 = centerVoxelPosition;
+                        }
+                    }
+                }
+                lod /= 2;
+            }
+        }
+        // Scale the normal cell to be half the volume size along the transvoxel axes
+        // TODO: Implement the other cases
+        if (axis == 1 << 5) { // Negative z axis
+            if (corner1 >= 9) {
+                cornerPos1.z += voxelScale * 0.5f;
+            }
+            if (corner2 >= 9) {
+                cornerPos2.z += voxelScale * 0.5f;
+            }
+        }
+        float t = isovalue2 / (isovalue2 - isovalue1);
+        std::cout << " T: " << t;
+        glm::vec3 vertexPos = cornerPos1 * t + cornerPos2 * (1-t);
+        std::cout << " Pos: (" << vertexPos[0] << "," << vertexPos[1] << "," << vertexPos[2] << ")" << std::endl;
+        transEdgeVertices.push_back(vertexPos);
+        transEdgeNormals.push_back(interpolateNormal(scene, x, y, z, isorange, corner1, corner2));
+    }
+    
+    /* Create the triangles */
+    if (transCellClass & 0x80) {
+        std::cout << "Rev Vertices: (";
+        for (int i = transCellData.GetTriangleCount() * 3 - 1; i >= 0; i--) {
+            int vertexIndex = transCellData.vertexIndex[i];
+            std::cout << vertexIndex << ",";
+            for (int j = 0; j < 3; j++) {
+                trianglesVector.push_back(transEdgeVertices[vertexIndex][j]);
+                normalsVector.push_back(transEdgeNormals[vertexIndex][j]);
+            }
+        }
+        std::cout << ")" << std::endl;
+    } else {
+        std::cout << "Vertices: (";
+        for (int i = 0; i < transCellData.GetTriangleCount() * 3; i++) {
+            int vertexIndex = transCellData.vertexIndex[i];
+            std::cout << vertexIndex << ",";
+            for (int j = 0; j < 3; j++) {
+                trianglesVector.push_back(transEdgeVertices[vertexIndex][j]);
+                normalsVector.push_back(transEdgeNormals[vertexIndex][j]);
+            }
+        }
+        std::cout << ")" << std::endl;
+    }
+//    for (auto vertexIndex : transCellData.vertexIndex) {
+//        for (int i = 0; i < 3; i++) {
+//            trianglesVector.push_back(transEdgeVertices[vertexIndex][i]);
+//            normalsVector.push_back(transEdgeNormals[vertexIndex][i]);
+//        }
+//    }
 }
 
 void setupVolumeTriangles(Scene &scene) {
@@ -651,8 +1013,15 @@ void setupVolumeTriangles(Scene &scene) {
     voxelScale *= 2;
     for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
         for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
-            for (int z = VOLUME_SIZE / 2; z < VOLUME_SIZE; z += voxelScale) {
+            for (int z = VOLUME_SIZE / 2 + voxelScale; z < VOLUME_SIZE; z += voxelScale) {
                 computeTrianglesForVoxel(scene, x, y, z);
+            }
+        }
+    }
+    for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
+        for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
+            for (int z = VOLUME_SIZE / 2; z < VOLUME_SIZE / 2 + voxelScale; z += voxelScale) {
+                computeTrianglesForTransvoxel(scene, x, y, z);
             }
         }
     }
