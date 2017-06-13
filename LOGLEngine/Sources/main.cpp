@@ -265,86 +265,86 @@ static void mouse_move_callback(GLFWwindow *window, double posX, double posY) {
     camera.lookAt[2] = camera.pos[2] + cos(alpha2) * cos(M_PI/2 - beta2);
 }
 
-void recomputeVertices(int x, int y, int z) {
-    int index = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
-    for (int i = 0; i < 15; i++) {
-        tempScene->volumeData[index].vertices[i] = glm::vec3(0);
-        tempScene->volumeData[index].normals[i] = glm::vec3(0);
-    }
-    
-    glm::vec3 cornerPositions[8] = {
-        glm::vec3(x-1, y-1, z-1),
-        glm::vec3(x,   y-1, z-1),
-        glm::vec3(x-1, y,   z-1),
-        glm::vec3(x,   y,   z-1),
-        glm::vec3(x-1, y-1, z),
-        glm::vec3(x,   y-1, z),
-        glm::vec3(x-1, y,   z),
-        glm::vec3(x,   y,   z)
-    };
-    
-    int cornerIndices[8] = {
-        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1),
-        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1),
-        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z-1),
-        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z-1),
-        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z  ),
-        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z  ),
-        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z  ),
-        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z  )
-    };
-    
-    unsigned long cubeIndex = 0;
-    float isorange = 0;
-    if ((tempScene->volumeData[cornerIndices[0]].isovalue) <= isorange) cubeIndex |= 1;
-    if ((tempScene->volumeData[cornerIndices[1]].isovalue) <= isorange) cubeIndex |= 2;
-    if ((tempScene->volumeData[cornerIndices[2]].isovalue) <= isorange) cubeIndex |= 4;
-    if ((tempScene->volumeData[cornerIndices[3]].isovalue) <= isorange) cubeIndex |= 8;
-    if ((tempScene->volumeData[cornerIndices[4]].isovalue) <= isorange) cubeIndex |= 16;
-    if ((tempScene->volumeData[cornerIndices[5]].isovalue) <= isorange) cubeIndex |= 32;
-    if ((tempScene->volumeData[cornerIndices[6]].isovalue) <= isorange) cubeIndex |= 64;
-    if ((tempScene->volumeData[cornerIndices[7]].isovalue) <= isorange) cubeIndex |= 128;
-    
-    /* Cube is entirely in/out of the surface */
-    if (edgeTable[cubeIndex] == 0) return;
-    
-    /* Transvoxel */
-    auto cellClass = regularCellClass[cubeIndex];
-    auto cellData = regularCellData[cellClass];
-    unsigned short vertexData[12] = {0};
-    for (int i = 0; i < 12; i++) {
-        vertexData[i] = regularVertexData[cubeIndex][i];
-    }
-    
-    /* Find the vertices where the surface intersects the cube for each edge */
-    std::vector<glm::vec3> edgeVertices;
-    std::vector<glm::vec3> edgeNormals;
-    for (auto vertex : vertexData) {
-        if (!vertex) break;
-        unsigned char corner1 = (vertex >> 4) & 0x000F;
-        unsigned char corner2 = vertex & 0x000F;
-        float isovalue1 = tempScene->volumeData[cornerIndices[corner1]].isovalue;
-        float isovalue2 = tempScene->volumeData[cornerIndices[corner2]].isovalue;
-        float t = isovalue2 / (isovalue2 - isovalue1);
-        glm::vec3 vertexPos = cornerPositions[corner1] * t + cornerPositions[corner2] * (1-t);
-        edgeVertices.push_back(vertexPos);
-        edgeNormals.push_back(interpolateNormal(*tempScene, x, y, z, isorange, corner1, corner2));
-    }
-    
-    /* Create the triangles */
-    int voxelIndex = x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z;
-    int indexCount = 0;
-    for (auto vertexIndex : cellData.vertexIndex) {
-        //                    for (int i = 0; i < 3; i++) {
-        //                        trianglesVector.push_back(edgeVertices[vertexIndex][i]);
-        //                        normalsVector.push_back(edgeNormals[vertexIndex][i]);
-        //                    }
-        tempScene->volumeData[voxelIndex].vertices[indexCount] = edgeVertices[vertexIndex];
-        tempScene->volumeData[voxelIndex].normals[indexCount] = edgeNormals[vertexIndex];
-        indexCount += 1;
-    }
-    tempScene->volumeData[voxelIndex].vertexCount = indexCount;
-}
+//void recomputeVertices(int x, int y, int z) {
+//    int index = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
+//    for (int i = 0; i < 15; i++) {
+//        tempScene->volumeData[index].vertices[i] = glm::vec3(0);
+//        tempScene->volumeData[index].normals[i] = glm::vec3(0);
+//    }
+//    
+//    glm::vec3 cornerPositions[8] = {
+//        glm::vec3(x-1, y-1, z-1),
+//        glm::vec3(x,   y-1, z-1),
+//        glm::vec3(x-1, y,   z-1),
+//        glm::vec3(x,   y,   z-1),
+//        glm::vec3(x-1, y-1, z),
+//        glm::vec3(x,   y-1, z),
+//        glm::vec3(x-1, y,   z),
+//        glm::vec3(x,   y,   z)
+//    };
+//    
+//    int cornerIndices[8] = {
+//        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1),
+//        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1),
+//        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z-1),
+//        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z-1),
+//        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z  ),
+//        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z  ),
+//        (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z  ),
+//        (x  )*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z  )
+//    };
+//    
+//    unsigned long cubeIndex = 0;
+//    float isorange = 0;
+//    if ((tempScene->volumeData[cornerIndices[0]].isovalue) <= isorange) cubeIndex |= 1;
+//    if ((tempScene->volumeData[cornerIndices[1]].isovalue) <= isorange) cubeIndex |= 2;
+//    if ((tempScene->volumeData[cornerIndices[2]].isovalue) <= isorange) cubeIndex |= 4;
+//    if ((tempScene->volumeData[cornerIndices[3]].isovalue) <= isorange) cubeIndex |= 8;
+//    if ((tempScene->volumeData[cornerIndices[4]].isovalue) <= isorange) cubeIndex |= 16;
+//    if ((tempScene->volumeData[cornerIndices[5]].isovalue) <= isorange) cubeIndex |= 32;
+//    if ((tempScene->volumeData[cornerIndices[6]].isovalue) <= isorange) cubeIndex |= 64;
+//    if ((tempScene->volumeData[cornerIndices[7]].isovalue) <= isorange) cubeIndex |= 128;
+//    
+//    /* Cube is entirely in/out of the surface */
+//    if (edgeTable[cubeIndex] == 0) return;
+//    
+//    /* Transvoxel */
+//    auto cellClass = regularCellClass[cubeIndex];
+//    auto cellData = regularCellData[cellClass];
+//    unsigned short vertexData[12] = {0};
+//    for (int i = 0; i < 12; i++) {
+//        vertexData[i] = regularVertexData[cubeIndex][i];
+//    }
+//    
+//    /* Find the vertices where the surface intersects the cube for each edge */
+//    std::vector<glm::vec3> edgeVertices;
+//    std::vector<glm::vec3> edgeNormals;
+//    for (auto vertex : vertexData) {
+//        if (!vertex) break;
+//        unsigned char corner1 = (vertex >> 4) & 0x000F;
+//        unsigned char corner2 = vertex & 0x000F;
+//        float isovalue1 = tempScene->volumeData[cornerIndices[corner1]].isovalue;
+//        float isovalue2 = tempScene->volumeData[cornerIndices[corner2]].isovalue;
+//        float t = isovalue2 / (isovalue2 - isovalue1);
+//        glm::vec3 vertexPos = cornerPositions[corner1] * t + cornerPositions[corner2] * (1-t);
+//        edgeVertices.push_back(vertexPos);
+//        edgeNormals.push_back(interpolateNormal(*tempScene, x, y, z, isorange, corner1, corner2));
+//    }
+//    
+//    /* Create the triangles */
+//    int voxelIndex = x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z;
+//    int indexCount = 0;
+//    for (auto vertexIndex : cellData.vertexIndex) {
+//        //                    for (int i = 0; i < 3; i++) {
+//        //                        trianglesVector.push_back(edgeVertices[vertexIndex][i]);
+//        //                        normalsVector.push_back(edgeNormals[vertexIndex][i]);
+//        //                    }
+//        tempScene->volumeData[voxelIndex].vertices[indexCount] = edgeVertices[vertexIndex];
+//        tempScene->volumeData[voxelIndex].normals[indexCount] = edgeNormals[vertexIndex];
+//        indexCount += 1;
+//    }
+//    tempScene->volumeData[voxelIndex].vertexCount = indexCount;
+//}
 
 void updateIsovalues(int x, int y, int z, float isovalue, int radius) {
     for (int xd = -radius; xd <= radius; xd++) {
@@ -551,14 +551,17 @@ void setupVolumeIsovalues(Scene &scene) {
 }
 
 void setupVolumeTriangles(Scene &scene) {
+    double time1 = glfwGetTime();
+    trianglesVector.clear();
+    normalsVector.clear();
     for (int x = 1; x < VOLUME_SIZE; x++) {
         for (int y = 1; y < VOLUME_SIZE; y++) {
             for (int z = 1; z < VOLUME_SIZE; z++) {
-                int index = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
-                for (int i = 0; i < 15; i++) {
-                    scene.volumeData[index].vertices[i] = glm::vec3(0);
-                    scene.volumeData[index].normals[i] = glm::vec3(0);
-                }
+//                int index = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
+//                for (int i = 0; i < 15; i++) {
+//                    scene.volumeData[index].vertices[i] = glm::vec3(0);
+//                    scene.volumeData[index].normals[i] = glm::vec3(0);
+//                }
                 
                 glm::vec3 cornerPositions[8] = {
                     glm::vec3(x-1, y-1, z-1),
@@ -621,35 +624,35 @@ void setupVolumeTriangles(Scene &scene) {
                 }
                 
                 /* Create the triangles */
-                int voxelIndex = x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z;
-                int indexCount = 0;
+//                int voxelIndex = x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z;
+//                int indexCount = 0;
                 for (auto vertexIndex : cellData.vertexIndex) {
-//                    for (int i = 0; i < 3; i++) {
-//                        trianglesVector.push_back(edgeVertices[vertexIndex][i]);
-//                        normalsVector.push_back(edgeNormals[vertexIndex][i]);
-//                    }
-                    scene.volumeData[voxelIndex].vertices[indexCount] = edgeVertices[vertexIndex];
-                    scene.volumeData[voxelIndex].normals[indexCount] = edgeNormals[vertexIndex];
-                    indexCount += 1;
+                    for (int i = 0; i < 3; i++) {
+                        trianglesVector.push_back(edgeVertices[vertexIndex][i]);
+                        normalsVector.push_back(edgeNormals[vertexIndex][i]);
+                    }
+//                    scene.volumeData[voxelIndex].vertices[indexCount] = edgeVertices[vertexIndex];
+//                    scene.volumeData[voxelIndex].normals[indexCount] = edgeNormals[vertexIndex];
+//                    indexCount += 1;
                 }
-                scene.volumeData[voxelIndex].vertexCount = indexCount;
+//                scene.volumeData[voxelIndex].vertexCount = indexCount;
             }
         }
     }
     
-    double time1 = glfwGetTime();
-    trianglesVector.clear();
-    normalsVector.clear();
-    for (int i = 0; i < scene.volumeData.size(); i++) {
-        for (int j = 0; j < scene.volumeData[i].vertexCount; j++) {
-            trianglesVector.push_back(scene.volumeData[i].vertices[j][0]);
-            trianglesVector.push_back(scene.volumeData[i].vertices[j][1]);
-            trianglesVector.push_back(scene.volumeData[i].vertices[j][2]);
-            normalsVector.push_back(scene.volumeData[i].normals[j][0]);
-            normalsVector.push_back(scene.volumeData[i].normals[j][1]);
-            normalsVector.push_back(scene.volumeData[i].normals[j][2]);
-        }
-    }
+//    double time1 = glfwGetTime();
+//    trianglesVector.clear();
+//    normalsVector.clear();
+//    for (int i = 0; i < scene.volumeData.size(); i++) {
+//        for (int j = 0; j < scene.volumeData[i].vertexCount; j++) {
+//            trianglesVector.push_back(scene.volumeData[i].vertices[j][0]);
+//            trianglesVector.push_back(scene.volumeData[i].vertices[j][1]);
+//            trianglesVector.push_back(scene.volumeData[i].vertices[j][2]);
+//            normalsVector.push_back(scene.volumeData[i].normals[j][0]);
+//            normalsVector.push_back(scene.volumeData[i].normals[j][1]);
+//            normalsVector.push_back(scene.volumeData[i].normals[j][2]);
+//        }
+//    }
     double time2 = glfwGetTime();
     std::cout << "Time to re-add all vertices to the vertex and normal buffers: " << (time2 - time1) << std::endl;
     
