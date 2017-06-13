@@ -22,12 +22,13 @@ GLuint volumeVBO, volumeVAO;
 std::shared_ptr<Shader> volumeShader;
 std::vector<float> trianglesVector;
 std::vector<float> normalsVector;
-float voxelScale = 1.0f;
 float t = 0;
 int shapeIndex = 1;
+int voxelScale = 2;
 float cameraSpeedFactor = 1.0f;
 bool isRotating = false;
 bool isWireFrame = false;
+bool isCursorDisabled = true;
 
 typedef struct {
     glm::vec3 pos;
@@ -119,7 +120,7 @@ typedef struct Cube {
 //        glm::vec3 rayDirection(rayDirTransformed[0], rayDirTransformed[1], rayDirTransformed[2]);
         auto M = std::make_shared<MatrixStack>();
         M->rotate(t, glm::vec3(0, 1, 0));
-        M->translate(glm::vec3(-VOLUME_SIZE/2.0f*voxelScale, -VOLUME_SIZE/2.0f*voxelScale, -VOLUME_SIZE/2.0f*voxelScale));
+        M->translate(glm::vec3(-VOLUME_SIZE/2.0f, -VOLUME_SIZE/2.0f, -VOLUME_SIZE/2.0f));
         glm::vec4 rayPosTransformed = glm::inverse(M->topMatrix()) * glm::vec4(ray.origin, 1);
         glm::vec4 rayDirTransformed = glm::inverse(M->topMatrix()) * glm::vec4(ray.dir, 0);
         glm::vec3 rayPosition(rayPosTransformed[0], rayPosTransformed[1], rayPosTransformed[2]);
@@ -193,6 +194,15 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else if (key == GLFW_KEY_T) {
             isWireFrame = !isWireFrame;
             glPolygonMode(GL_FRONT_AND_BACK, isWireFrame ? GL_LINE : GL_FILL);
+        } else if (key == GLFW_KEY_M) {
+            isCursorDisabled = !isCursorDisabled;
+            glfwSetInputMode(window, GLFW_CURSOR, isCursorDisabled ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        } else if (key == GLFW_KEY_I) {
+            voxelScale = max(voxelScale / 2, 1);
+            setupVolumeTriangles(*tempScene);
+        } else if (key == GLFW_KEY_O) {
+            voxelScale *= 2;
+            setupVolumeTriangles(*tempScene);
         } else if (key == GLFW_KEY_W) {
             camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_S) {
@@ -417,33 +427,6 @@ static void mouse_press_callback(GLFWwindow* window, int button, int action, int
     }
 }
 
-void triangleSetup() {
-    // Set up vertex data (and buffer(s)) and attribute pointers
-    GLfloat vertices[] = {
-        // Positions         // Colors
-        0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,  // Bottom Right
-        -0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,  // Bottom Left
-        0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f   // Top
-    };
-
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    // Bind the Vertex Array Object first, then bind and set vertex buffer(s) and attribute pointer(s).
-    glBindVertexArray(VAO);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
-    glEnableVertexAttribArray(0);
-    // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    
-    glBindVertexArray(0); // Unbind VAO
-}
-
 VoxelCube voxelForVolumePos(Scene &scene, int x, int y, int z) {
     glm::vec3 pos(x, y, z);
     Voxel voxel = scene.volumeData[x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z];
@@ -451,20 +434,20 @@ VoxelCube voxelForVolumePos(Scene &scene, int x, int y, int z) {
 }
 
 glm::vec3 gradientForPoint(Scene &scene, int x, int y, int z) {
-    int minx = (x-1 >= 0) ? x-1 : x;
-    int maxx = (x+1 <= VOLUME_SIZE-1) ? x+1 : x;
+    int minx = (x-voxelScale >= 0) ? x-voxelScale : x;
+    int maxx = (x+voxelScale <= VOLUME_SIZE-1) ? x+voxelScale : x;
     float divisorx = (x == 0 || x == VOLUME_SIZE-1) ? 1.0f : 2.0f;
     float gradx = (voxelForVolumePos(scene, maxx, y, z).isovalue - voxelForVolumePos(scene, minx, y, z).isovalue) / divisorx;
     // grad[0] = (maxx - minx) / divisorx;
     
-    int miny = (y-1 >= 0) ? y-1 : y;
-    int maxy = (y+1 <= VOLUME_SIZE-1) ? y+1 : y;
+    int miny = (y-voxelScale >= 0) ? y-voxelScale : y;
+    int maxy = (y+voxelScale <= VOLUME_SIZE-1) ? y+voxelScale : y;
     float divisory = (y == 0 || y == VOLUME_SIZE-1) ? 1.0f : 2.0f;
     float grady = (voxelForVolumePos(scene, x, maxy, z).isovalue - voxelForVolumePos(scene, x, miny, z).isovalue) / divisory;
     // grad[1] = (maxy - miny) / divisory;
     
-    int minz = (z-1 >= 0) ? z-1 : z;
-    int maxz = (z+1 <= VOLUME_SIZE-1) ? z+1 : z;
+    int minz = (z-voxelScale >= 0) ? z-voxelScale : z;
+    int maxz = (z+voxelScale <= VOLUME_SIZE-1) ? z+voxelScale : z;
     float divisorz = (z == 0 || z == VOLUME_SIZE-1) ? 1.0f : 2.0f;
     float gradz = (voxelForVolumePos(scene, x, y, maxz).isovalue - voxelForVolumePos(scene, x, y, minz).isovalue) / divisorz;
     // grad[2] = (maxz - minz) / divisorz;
@@ -500,11 +483,11 @@ glm::vec3 interpolateNormal(Scene &scene, int x, int y, int z, int isorange, int
     for (int i = 0; i < 2; i++) {
         int corner = (i == 0) ? corner1 : corner2;
         int cornerOffset[3] = {0};
-        cornerOffset[0] = cornerOffsets[corner][0];
-        cornerOffset[1] = cornerOffsets[corner][1];
-        cornerOffset[2] = cornerOffsets[corner][2];
-        grad[i] = gradientForPoint(scene, x + cornerOffsets[corner][0], y + cornerOffsets[corner][1], z + cornerOffsets[corner][2]);
-        voxels[i] = voxelForVolumePos(scene, x + cornerOffsets[corner][0], y + cornerOffsets[corner][1], z + cornerOffsets[corner][2]);
+        cornerOffset[0] = cornerOffsets[corner][0] * voxelScale;
+        cornerOffset[1] = cornerOffsets[corner][1] * voxelScale;
+        cornerOffset[2] = cornerOffsets[corner][2] * voxelScale;
+        grad[i] = gradientForPoint(scene, x + cornerOffsets[corner][0] * voxelScale, y + cornerOffsets[corner][1] * voxelScale, z + cornerOffsets[corner][2] * voxelScale);
+        voxels[i] = voxelForVolumePos(scene, x + cornerOffsets[corner][0] * voxelScale, y + cornerOffsets[corner][1] * voxelScale, z + cornerOffsets[corner][2] * voxelScale);
     }
     
     glm::vec3 grad1 = grad[0];
@@ -554,9 +537,9 @@ void setupVolumeTriangles(Scene &scene) {
     double time1 = glfwGetTime();
     trianglesVector.clear();
     normalsVector.clear();
-    for (int x = 1; x < VOLUME_SIZE; x++) {
-        for (int y = 1; y < VOLUME_SIZE; y++) {
-            for (int z = 1; z < VOLUME_SIZE; z++) {
+    for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
+        for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
+            for (int z = voxelScale; z < VOLUME_SIZE; z += voxelScale) {
 //                int index = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
 //                for (int i = 0; i < 15; i++) {
 //                    scene.volumeData[index].vertices[i] = glm::vec3(0);
@@ -564,25 +547,25 @@ void setupVolumeTriangles(Scene &scene) {
 //                }
                 
                 glm::vec3 cornerPositions[8] = {
-                    glm::vec3(x-1, y-1, z-1),
-                    glm::vec3(x,   y-1, z-1),
-                    glm::vec3(x-1, y,   z-1),
-                    glm::vec3(x,   y,   z-1),
-                    glm::vec3(x-1, y-1, z),
-                    glm::vec3(x,   y-1, z),
-                    glm::vec3(x-1, y,   z),
-                    glm::vec3(x,   y,   z)
+                    glm::vec3(x-voxelScale, y-voxelScale, z-voxelScale),
+                    glm::vec3(x,            y-voxelScale, z-voxelScale),
+                    glm::vec3(x-voxelScale, y,            z-voxelScale),
+                    glm::vec3(x,            y,            z-voxelScale),
+                    glm::vec3(x-voxelScale, y-voxelScale, z),
+                    glm::vec3(x,            y-voxelScale, z),
+                    glm::vec3(x-voxelScale, y,            z),
+                    glm::vec3(x,            y,            z)
                 };
                 
                 int cornerIndices[8] = {
-                    (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1),
-                    (x  )*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1),
-                    (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z-1),
-                    (x  )*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z-1),
-                    (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z  ),
-                    (x  )*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z  ),
-                    (x-1)*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z  ),
-                    (x  )*VOLUME_SIZE*VOLUME_SIZE + (y  )*VOLUME_SIZE + (z  )
+                    (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z-voxelScale),
+                    (x           )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z-voxelScale),
+                    (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z-voxelScale),
+                    (x           )*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z-voxelScale),
+                    (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z),
+                    (x           )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale)*VOLUME_SIZE + (z),
+                    (x-voxelScale)*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z),
+                    (x           )*VOLUME_SIZE*VOLUME_SIZE + (y           )*VOLUME_SIZE + (z)
                 };
                 
                 unsigned long cubeIndex = 0;
@@ -707,7 +690,7 @@ void drawVolumeData(float aspect) {
     // M->scale(0.0625);
     M->rotate(t, glm::vec3(0, 1, 0));
     // M->scale(voxelScale/2.0f);
-    M->translate(glm::vec3(-VOLUME_SIZE/2.0f*voxelScale, -VOLUME_SIZE/2.0f*voxelScale, -VOLUME_SIZE/2.0f*voxelScale));
+    M->translate(glm::vec3(-VOLUME_SIZE/2.0f, -VOLUME_SIZE/2.0f, -VOLUME_SIZE/2.0f));
     glUniformMatrix4fv(glGetUniformLocation(volumeShader->program, "M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
     // Send view matrix to GPU
     auto V = std::make_shared<MatrixStack>();
@@ -770,8 +753,6 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_move_callback);
     glfwSetMouseButtonCallback(window, mouse_press_callback);
     
-    // Setup triangle vertex attributes and send vertices to GPU
-    triangleSetup();
     // Build and compile our shader program
     Shader simpleShader("../../../LOGLEngine/Shaders/basic.vert", "../../../LOGLEngine/Shaders/basic.frag");
     volumeShader = std::make_shared<Shader>("../../../LOGLEngine/Shaders/volume.vert", "../../../LOGLEngine/Shaders/volume.frag");
@@ -780,7 +761,7 @@ int main() {
     tempScene = &scene;
     setupVolumeData(scene);
     
-    camera.pos = glm::vec3(0, 0, -VOLUME_SIZE*voxelScale*1.5f);
+    camera.pos = glm::vec3(0, 0, -VOLUME_SIZE*1.5f);
     camera.lookAt = glm::vec3(0, 0, 0);
     camera.up = glm::vec3(0, 1, 0);
     
