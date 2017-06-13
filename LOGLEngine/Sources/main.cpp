@@ -264,36 +264,63 @@ static void mouse_move_callback(GLFWwindow *window, double posX, double posY) {
     camera.lookAt[2] = camera.pos[2] + cos(alpha2) * cos(M_PI/2 - beta2);
 }
 
+bool hitOctreeNode(const Ray &ray, glm::vec3 min, glm::vec3 max) {
+    if (glm::length(max - min) <= 2.0f) {
+        std::cout << "Hit Node (" << ((int)min[0]) << "," << ((int)min[1]) << "," << ((int)min[2]) << ")" << std::endl;
+        int x = (int)min[0];
+        int y = (int)min[1];
+        int z = (int)min[2];
+        for (int xd = -2; xd <= 2; xd++) {
+            for (int yd = -2; yd <= 2; yd++) {
+                for (int zd = -2; zd <= 2; zd++) {
+                    if (xd*xd + yd*yd + zd*zd > 2*2) continue;
+                    int index = ((x+xd)*VOLUME_SIZE*VOLUME_SIZE + (y+yd)*VOLUME_SIZE + (z+zd));
+                    if (index >= 0 && index < VOLUME_SIZE*VOLUME_SIZE*VOLUME_SIZE) {
+                        tempScene->volumeData[index].isovalue = 10;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+    
+    Cube cube(min, max);
+    
+    if (cube.intersects(ray)) {
+        // Use integer division to ensure it is at a voxel corner
+        glm::vec3 center((max[0] + min[0]) / 2,
+                         (max[1] + min[1]) / 2,
+                         (max[2] + min[2]) / 2);
+        
+        hitOctreeNode(ray, min, center);
+        hitOctreeNode(ray, glm::vec3(min[0],    min[1],    center[2]), glm::vec3(center[0], center[1], max[2]));
+        hitOctreeNode(ray, glm::vec3(center[0], min[1],    min[2]),    glm::vec3(max[0],    center[1], center[2]));
+        hitOctreeNode(ray, glm::vec3(center[0], min[1],    center[2]), glm::vec3(max[0],    center[1], max[2]));
+        hitOctreeNode(ray, glm::vec3(min[0],    center[1], min[2]),    glm::vec3(center[0], max[1],    center[2]));
+        hitOctreeNode(ray, glm::vec3(min[0],    center[1], center[2]), glm::vec3(center[0], max[1],    max[2]));
+        hitOctreeNode(ray, glm::vec3(center[0], center[1], min[2]),    glm::vec3(max[0],    max[1],    center[2]));
+        hitOctreeNode(ray, center, max);
+        return true;
+    }
+    return false;
+}
+
 static void mouse_press_callback(GLFWwindow* window, int button, int action, int mods) {
     if (action == GLFW_PRESS) {
         std::cout << "Mouse button pressed" << std::endl;
         std::cout << "Camera Pos:    (" << camera.pos.x << "," << camera.pos.y << "," << camera.pos.z << ")" << std::endl;
         std::cout << "Camera LookAt: (" << camera.lookAt.x << "," << camera.lookAt.y << "," << camera.lookAt.z << ")" << std::endl;
         Ray ray(camera.pos, camera.lookAt - camera.pos);
-        for (int x = 1; x < VOLUME_SIZE; x++) {
-            for (int y = 1; y < VOLUME_SIZE; y++) {
-                for (int z = 1; z < VOLUME_SIZE; z++) {
-//                    int minIndex = ((x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1));
-//                    int maxIndex = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
-                    Cube cube(glm::vec3(x-1, y-1, z-1), glm::vec3(x, y, z));
-                    if (cube.intersects(ray)) {
-//                        std::cout << "Hit Voxels" << std::endl;
-                        for (int xd = -2; xd <= 2; xd++) {
-                            for (int yd = -2; yd <= 2; yd++) {
-                                for (int zd = -2; zd <= 2; zd++) {
-                                    if (xd*xd + yd*yd + zd*zd > 2*2) continue;
-                                    int index = ((x+xd)*VOLUME_SIZE*VOLUME_SIZE + (y+yd)*VOLUME_SIZE + (z+zd));
-                                    if (index >= 0 && index < VOLUME_SIZE*VOLUME_SIZE*VOLUME_SIZE) {
-                                        tempScene->volumeData[index].isovalue = 10;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        
+        double time1 = glfwGetTime();
+        hitOctreeNode(ray, glm::vec3(0, 0, 0), glm::vec3(VOLUME_SIZE-1, VOLUME_SIZE-1, VOLUME_SIZE-1));
+        double time2 = glfwGetTime();
+        std::cout << "Time to traverse octree: " << (time2 - time1) << std::endl;
+        
         setupVolumeTriangles(*tempScene);
+        double time3 = glfwGetTime();
+        std::cout << "Time to setup triangles: " << (time3 - time2) << std::endl;
+        std::cout << "Total Edit Time: " << (time3 - time1) << std::endl;
     }
 }
 
@@ -600,9 +627,7 @@ int main() {
     glfwSwapInterval(1);
     // Register callbacks for events
     glfwSetKeyCallback(window, key_callback);
-    // Set the mouse move call back
     glfwSetCursorPosCallback(window, mouse_move_callback);
-    
     glfwSetMouseButtonCallback(window, mouse_press_callback);
     
     // Setup triangle vertex attributes and send vertices to GPU
