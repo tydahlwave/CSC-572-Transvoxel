@@ -26,7 +26,7 @@ float voxelScale = 1.0f;
 float t = 0;
 int shapeIndex = 1;
 float cameraSpeedFactor = 1.0f;
-bool isRotating = true;
+bool isRotating = false;
 bool isWireFrame = false;
 
 typedef struct {
@@ -48,7 +48,137 @@ Camera camera;
 //}
 
 void resetVolumeData(Scene &scene);
+void setupVolumeTriangles(Scene &scene);
 Scene *tempScene;
+
+typedef struct Ray {
+    glm::vec3 origin, dir;
+    glm::vec3 invdir;
+    int sign[3];
+    
+    Ray(glm::vec3 origin, glm::vec3 dir) : origin(origin), dir(dir) {
+        invdir = 1.0f / dir;
+        sign[0] = (invdir.x < 0);
+        sign[1] = (invdir.y < 0);
+        sign[2] = (invdir.z < 0);
+    }
+} Ray;
+
+typedef struct Cube {
+    //    glm::vec3 center;
+    //    glm::vec3 extents;
+    glm::vec3 min;
+    glm::vec3 max;
+    glm::vec3 bounds[2];
+    
+    //    Cube(glm::vec3 center, glm::vec3 extents) :center(center), extents(extents) {}
+    Cube(glm::vec3 min, glm::vec3 max) :min(min), max(max) {
+        bounds[0] = min;
+        bounds[1] = max;
+    }
+    
+    //    glm::vec3 getMinExtents() { return center - extents; }
+    //    glm::vec3 getMaxExtents() { return center + extents; }
+    //    glm::vec3 getSize() { return extents * 2.0f; }
+    
+    // Credit: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+    bool intersects2(Ray r) {
+        float tmin, tmax, tymin, tymax, tzmin, tzmax;
+        
+        tmin = (bounds[r.sign[0]].x - r.origin.x) * r.invdir.x;
+        tmax = (bounds[1-r.sign[0]].x - r.origin.x) * r.invdir.x;
+        tymin = (bounds[r.sign[1]].y - r.origin.y) * r.invdir.y;
+        tymax = (bounds[1-r.sign[1]].y - r.origin.y) * r.invdir.y;
+        
+        if ((tmin > tymax) || (tymin > tmax))
+            return false;
+        if (tymin > tmin)
+            tmin = tymin;
+        if (tymax < tmax)
+            tmax = tymax;
+        
+        tzmin = (bounds[r.sign[2]].z - r.origin.z) * r.invdir.z;
+        tzmax = (bounds[1-r.sign[2]].z - r.origin.z) * r.invdir.z;
+        
+        if ((tmin > tzmax) || (tzmin > tmax))
+            return false;
+        if (tzmin > tmin)
+            tmin = tzmin;
+        if (tzmax < tmax)
+            tmax = tzmax;
+        
+        return true;
+    }
+    
+    bool intersects(Ray ray) {
+        // Transform the ray
+//        glm::vec4 rayPosTransformed = invTransform * Vector4(ray->position[0], ray->position[1], ray->position[2], 1);
+//        glm::vec4 rayDirTransformed = invTransform * Vector4(ray->direction[0], ray->direction[1], ray->direction[2], 0);
+//        glm::vec3 rayPosition(rayPosTransformed[0], rayPosTransformed[1], rayPosTransformed[2]);
+//        glm::vec3 rayDirection(rayDirTransformed[0], rayDirTransformed[1], rayDirTransformed[2]);
+        auto M = std::make_shared<MatrixStack>();
+        M->rotate(t, glm::vec3(0, 1, 0));
+        M->translate(glm::vec3(-VOLUME_SIZE/2.0f*voxelScale, -VOLUME_SIZE/2.0f*voxelScale, -VOLUME_SIZE/2.0f*voxelScale));
+        glm::vec4 rayPosTransformed = glm::inverse(M->topMatrix()) * glm::vec4(ray.origin, 1);
+        glm::vec4 rayDirTransformed = glm::inverse(M->topMatrix()) * glm::vec4(ray.dir, 0);
+        glm::vec3 rayPosition(rayPosTransformed[0], rayPosTransformed[1], rayPosTransformed[2]);
+        glm::vec3 rayDirection(rayDirTransformed[0], rayDirTransformed[1], rayDirTransformed[2]);
+        
+        // Switch the min and max coords if the ray is coming from the back side of the box
+        glm::vec3 newMin = min;
+        glm::vec3 newMax = max;
+        for (int i = 0; i < 3; i++) {
+            if (fabs(newMax[i] - rayPosition[i]) < fabs(newMin[i] - rayPosition[i])) {
+                float temp = newMin[i];
+                newMin[i] = newMax[i];
+                newMax[i] = temp;
+            }
+        }
+        
+        // Short-circuits if the ray is parallel to the box
+        int skipDim = -1;
+        if (rayDirection[0] == 0) {
+            if (rayPosition[0] < min[0] || rayPosition[0] > max[0]/* || rayPosition[1] >= max[1] || rayPosition[2] >= max[2]*/) return false;
+            skipDim = 0;
+        }
+        if (rayDirection[1] == 0) {
+            if (rayPosition[1] < min[1] || rayPosition[1] > max[1]/* || rayPosition[0] >= max[0] || rayPosition[2] >= max[2]*/) return false;
+            skipDim = 1;
+        }
+        if (rayDirection[2] == 0) {
+            if (rayPosition[2] < min[2] || rayPosition[2] > max[2]/* || rayPosition[0] >= max[0] || rayPosition[1] >= max[1]*/) return false;
+            skipDim = 2;
+        }
+        
+        // Calculate intersections with the box
+        float tgmin = FLT_MIN;
+        float tgmax = FLT_MAX;
+        float normalDimMin = -1;
+        float normalDimMax = -1;
+        // Check every dimension
+        for (int i = 0; i < 3; i++) {
+            if (i == skipDim) continue;
+            float t1 = (newMin[i] - rayPosition[i]) / rayDirection[i];
+            float t2 = (newMax[i] - rayPosition[i]) / rayDirection[i];
+            if (t2 < t1) {
+                float temp = t1;
+                t1 = t2;
+                t2 = temp;
+            }
+            if (t1 > tgmin) {
+                tgmin = t1;
+                normalDimMin = i;
+            }
+            if (t2 < tgmax) {
+                tgmax = t2;
+                normalDimMax = i;
+            }
+            if (tgmin > tgmax) return false; // no hit
+            if (tgmax < 0.0001) return false; // hit is behind start of ray
+        }
+        return true;
+    }
+} Cube;
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
@@ -132,6 +262,39 @@ static void mouse_move_callback(GLFWwindow *window, double posX, double posY) {
     camera.lookAt[0] = camera.pos[0] + cos(alpha2) * cos(beta2);
     camera.lookAt[1] = camera.pos[1] + -sin(alpha2);
     camera.lookAt[2] = camera.pos[2] + cos(alpha2) * cos(M_PI/2 - beta2);
+}
+
+static void mouse_press_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (action == GLFW_PRESS) {
+        std::cout << "Mouse button pressed" << std::endl;
+        std::cout << "Camera Pos:    (" << camera.pos.x << "," << camera.pos.y << "," << camera.pos.z << ")" << std::endl;
+        std::cout << "Camera LookAt: (" << camera.lookAt.x << "," << camera.lookAt.y << "," << camera.lookAt.z << ")" << std::endl;
+        Ray ray(camera.pos, camera.lookAt - camera.pos);
+        for (int x = 1; x < VOLUME_SIZE; x++) {
+            for (int y = 1; y < VOLUME_SIZE; y++) {
+                for (int z = 1; z < VOLUME_SIZE; z++) {
+//                    int minIndex = ((x-1)*VOLUME_SIZE*VOLUME_SIZE + (y-1)*VOLUME_SIZE + (z-1));
+//                    int maxIndex = (x*VOLUME_SIZE*VOLUME_SIZE + y*VOLUME_SIZE + z);
+                    Cube cube(glm::vec3(x-1, y-1, z-1), glm::vec3(x, y, z));
+                    if (cube.intersects(ray)) {
+//                        std::cout << "Hit Voxels" << std::endl;
+                        for (int xd = -2; xd <= 2; xd++) {
+                            for (int yd = -2; yd <= 2; yd++) {
+                                for (int zd = -2; zd <= 2; zd++) {
+                                    if (xd*xd + yd*yd + zd*zd > 2*2) continue;
+                                    int index = ((x+xd)*VOLUME_SIZE*VOLUME_SIZE + (y+yd)*VOLUME_SIZE + (z+zd));
+                                    if (index >= 0 && index < VOLUME_SIZE*VOLUME_SIZE*VOLUME_SIZE) {
+                                        tempScene->volumeData[index].isovalue = 10;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        setupVolumeTriangles(*tempScene);
+    }
 }
 
 void triangleSetup() {
@@ -244,7 +407,7 @@ glm::vec3 interpolateNormal(Scene &scene, int x, int y, int z, int isorange, int
     }
 }
 
-void setupVolumeData(Scene &scene) {
+void setupVolumeIsovalues(Scene &scene) {
     OSN::Noise<3> noise(time(0));
     for (int x = 0; x < VOLUME_SIZE; x++) {
         for (int y = 0; y < VOLUME_SIZE; y++) {
@@ -254,7 +417,9 @@ void setupVolumeData(Scene &scene) {
             }
         }
     }
-    
+}
+
+void setupVolumeTriangles(Scene &scene) {
     for (int x = 1; x < VOLUME_SIZE; x++) {
         for (int y = 1; y < VOLUME_SIZE; y++) {
             for (int z = 1; z < VOLUME_SIZE; z++) {
@@ -350,6 +515,11 @@ void setupVolumeData(Scene &scene) {
     glEnableVertexAttribArray(1);
 }
 
+void setupVolumeData(Scene &scene) {
+    setupVolumeIsovalues(scene);
+    setupVolumeTriangles(scene);
+}
+
 void resetVolumeData(Scene &scene) {
     trianglesVector.clear();
     normalsVector.clear();
@@ -432,6 +602,8 @@ int main() {
     glfwSetKeyCallback(window, key_callback);
     // Set the mouse move call back
     glfwSetCursorPosCallback(window, mouse_move_callback);
+    
+    glfwSetMouseButtonCallback(window, mouse_press_callback);
     
     // Setup triangle vertex attributes and send vertices to GPU
     triangleSetup();
