@@ -782,38 +782,6 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
         std::cout << i << ": (" << transCornerPositions[i][0] << ", " << transCornerPositions[i][1] << ", " << transCornerPositions[i][2] << ")" << std::endl;
     }
     
-//    glm::vec3 transCornerPositions[13] = {
-//        glm::vec3(x-voxelScale,   y-voxelScale,   z),
-//        glm::vec3(x-voxelScale/2, y-voxelScale,   z),
-//        glm::vec3(x,              y-voxelScale,   z),
-//        glm::vec3(x-voxelScale,   y-voxelScale/2, z),
-//        glm::vec3(x-voxelScale/2, y-voxelScale/2, z),
-//        glm::vec3(x,              y-voxelScale/2, z),
-//        glm::vec3(x-voxelScale,   y,              z),
-//        glm::vec3(x-voxelScale/2, y,              z),
-//        glm::vec3(x,              y,              z),
-//        glm::vec3(x-voxelScale,   y-voxelScale,   z),
-//        glm::vec3(x,              y-voxelScale,   z),
-//        glm::vec3(x-voxelScale,   y,              z),
-//        glm::vec3(x,              y,              z),
-//    };
-
-//    glm::vec3 transCornerPositions[13] = {
-//        glm::vec3(x,              y-voxelScale,   z-voxelScale),
-//        glm::vec3(x-voxelScale/2, y-voxelScale,   z-voxelScale),
-//        glm::vec3(x-voxelScale,   y-voxelScale,   z-voxelScale),
-//        glm::vec3(x,              y-voxelScale/2, z-voxelScale),
-//        glm::vec3(x-voxelScale/2, y-voxelScale/2, z-voxelScale),
-//        glm::vec3(x-voxelScale,   y-voxelScale/2, z-voxelScale),
-//        glm::vec3(x,              y,              z-voxelScale),
-//        glm::vec3(x-voxelScale/2, y,              z-voxelScale),
-//        glm::vec3(x-voxelScale,   y,              z-voxelScale),
-//        glm::vec3(x,              y-voxelScale,   z-voxelScale),
-//        glm::vec3(x-voxelScale,   y-voxelScale,   z-voxelScale),
-//        glm::vec3(x,              y,              z-voxelScale),
-//        glm::vec3(x-voxelScale,   y,              z-voxelScale),
-//    };
-    
     int transCornerIndices[13] = {
         (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
         (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
@@ -829,38 +797,6 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
         (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
         (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale)
     };
-    
-//    int transCornerIndices[13] = {
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
-//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z),
-//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
-//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z)
-//    };
-    
-//    int transCornerIndices[13] = {
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale/2)*VOLUME_SIZE + (z-voxelScale),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale/2)*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y-voxelScale  )*VOLUME_SIZE + (z-voxelScale),
-//        (x             )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale),
-//        (x-voxelScale  )*VOLUME_SIZE*VOLUME_SIZE + (y             )*VOLUME_SIZE + (z-voxelScale)
-//    };
     
     unsigned long transCubeIndex = 0;
     if ((scene.volumeData[transCornerIndices[0]].isovalue) <= isorange) transCubeIndex |= 1;
@@ -905,9 +841,9 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
                 glm::vec3 centerVoxelPosition = (cornerPos1 + cornerPos2) / 2.0f;
                 int centerVoxelIndex = (int)centerVoxelPosition[0] * VOLUME_SIZE * VOLUME_SIZE + (int)centerVoxelPosition[1] * VOLUME_SIZE + (int)centerVoxelPosition[2];
                 Voxel centerVoxel = scene.volumeData[centerVoxelIndex];
-                if (centerVoxel.isovalue < 0) {
-                    if (isovalue1 < 0) {
-                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                if (centerVoxel.isovalue <= 0) {
+                    if (isovalue1 <= 0) {
+                        if (corner1 < 9) { // Corner is on high-res face && LOD > 2
                             if (lod > 2) {
                                 isovalue1 = centerVoxel.isovalue;
                                 cornerPos1 = centerVoxelPosition;
@@ -917,7 +853,7 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
                             cornerPos1 = centerVoxelPosition;
                         }
                     } else {
-                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                        if (corner2 < 9) { // Corner is on high-res face && LOD > 2
                             if (lod > 2) {
                                 isovalue2 = centerVoxel.isovalue;
                                 cornerPos2 = centerVoxelPosition;
@@ -928,8 +864,8 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
                         }
                     }
                 } else {
-                    if (isovalue1 >= 0) {
-                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                    if (isovalue1 > 0) {
+                        if (corner1 < 9) { // Corner is on high-res face && LOD > 2
                             if (lod > 2) {
                                 isovalue1 = centerVoxel.isovalue;
                                 cornerPos1 = centerVoxelPosition;
@@ -939,7 +875,7 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
                             cornerPos1 = centerVoxelPosition;
                         }
                     } else {
-                        if (axis == 1 << 5 && corner1 < 9) { // Negative z axis && Corner is on high-res face && LOD > 2
+                        if (corner2 < 9) { // Corner is on high-res face && LOD > 2
                             if (lod > 2) {
                                 isovalue2 = centerVoxel.isovalue;
                                 cornerPos2 = centerVoxelPosition;

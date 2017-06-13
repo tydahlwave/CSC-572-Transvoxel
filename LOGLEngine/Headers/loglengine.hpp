@@ -25,7 +25,7 @@
 #define NUM_MODELS 5
 #define VOLUME_SIZE 64
 #define POINT_SIZE 50
-#define SPHERE_RADIUS 30
+#define SPHERE_RADIUS 24
 
 const int mWidth = 1080;
 const int mHeight = 920;
