@@ -30,6 +30,7 @@ float cameraSpeedFactor = 1.0f;
 bool isRotating = false;
 bool isWireFrame = false;
 bool isCursorDisabled = true;
+bool lodSmoothing = true;
 
 typedef struct {
     glm::vec3 pos;
@@ -206,6 +207,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             setupVolumeTriangles(*tempScene);
         } else if (key == GLFW_KEY_Q) {
             editingIsovalue = -editingIsovalue;
+        } else if (key == GLFW_KEY_L) {
+            lodSmoothing = !lodSmoothing;
+            setupVolumeTriangles(*tempScene);
         } else if (key == GLFW_KEY_W) {
             camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
         } else if (key == GLFW_KEY_S) {
@@ -590,8 +594,36 @@ void computeTrianglesForVoxel(Scene &scene, int x, int y, int z) {
         unsigned char corner2 = vertex & 0x000F;
         float isovalue1 = scene.volumeData[cornerIndices[corner1]].isovalue;
         float isovalue2 = scene.volumeData[cornerIndices[corner2]].isovalue;
+        glm::vec3 cornerPos1 = cornerPositions[corner1];
+        glm::vec3 cornerPos2 = cornerPositions[corner2];
+        if (lodSmoothing) {
+            int lod = voxelScale;
+            while (lod > 1) {
+                glm::vec3 centerVoxelPosition = (cornerPos1 + cornerPos2) / 2.0f;
+                int centerVoxelIndex = (int)centerVoxelPosition[0] * VOLUME_SIZE * VOLUME_SIZE + (int)centerVoxelPosition[1] * VOLUME_SIZE + (int)centerVoxelPosition[2];
+                Voxel centerVoxel = scene.volumeData[centerVoxelIndex];
+                if (centerVoxel.isovalue <= 0) {
+                    if (isovalue1 <= 0) {
+                        isovalue1 = centerVoxel.isovalue;
+                        cornerPos1 = centerVoxelPosition;
+                    } else {
+                        isovalue2 = centerVoxel.isovalue;
+                        cornerPos2 = centerVoxelPosition;
+                    }
+                } else {
+                    if (isovalue1 > 0) {
+                        isovalue1 = centerVoxel.isovalue;
+                        cornerPos1 = centerVoxelPosition;
+                    } else {
+                        isovalue2 = centerVoxel.isovalue;
+                        cornerPos2 = centerVoxelPosition;
+                    }
+                }
+                lod /= 2;
+            }
+        }
         float t = isovalue2 / (isovalue2 - isovalue1);
-        glm::vec3 vertexPos = cornerPositions[corner1] * t + cornerPositions[corner2] * (1-t);
+        glm::vec3 vertexPos = cornerPos1 * t + cornerPos2 * (1-t);
         edgeVertices.push_back(vertexPos);
         edgeNormals.push_back(interpolateNormal(scene, x, y, z, isorange, corner1, corner2));
     }
