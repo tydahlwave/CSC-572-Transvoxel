@@ -523,6 +523,40 @@ glm::vec3 interpolateNormal(Scene &scene, int x, int y, int z, int isorange, int
     }
 }
 
+glm::vec3 interpolateTransNormal(Scene &scene, int x, int y, int z, int isorange, int corner1, int corner2) {
+    // Get gradient for each corner
+    glm::vec3 grad[2];
+    VoxelCube voxels[2];
+    for (int i = 0; i < 2; i++) {
+        int corner = (i == 0) ? corner1 : corner2;
+        int cornerOffset[3] = {0};
+        cornerOffset[0] = transCornerOffsets[corner][0] * voxelScale/2;
+        cornerOffset[1] = transCornerOffsets[corner][1] * voxelScale/2;
+        cornerOffset[2] = transCornerOffsets[corner][2] * voxelScale/2;
+        grad[i] = gradientForPoint(scene, x + transCornerOffsets[corner][0] * voxelScale/2, y + transCornerOffsets[corner][1] * voxelScale/2, z + transCornerOffsets[corner][2] * voxelScale/2);
+        voxels[i] = voxelForVolumePos(scene, x + transCornerOffsets[corner][0] * voxelScale/2, y + transCornerOffsets[corner][1] * voxelScale/2, z + transCornerOffsets[corner][2] * voxelScale/2);
+    }
+    
+    glm::vec3 grad1 = grad[0];
+    glm::vec3 grad2 = grad[1];
+    float iso1 = voxels[0].isovalue;
+    float iso2 = voxels[1].isovalue;
+    if (iso2 < iso1) {
+        float temp = iso1;
+        iso1 = iso2;
+        iso2 = temp;
+        glm::vec3 temp2 = grad1;
+        grad1 = grad2;
+        grad2 = temp2;
+    }
+    
+    if (abs(iso1 - iso2) > 0.00001) {
+        return grad1 + (grad2 - grad1) / (iso2 - iso1) * (isorange - iso1);
+    } else {
+        return grad1;
+    }
+}
+
 void setupVolumeIsovalues(Scene &scene) {
     OSN::Noise<3> noise(time(0));
     for (int x = 0; x < VOLUME_SIZE; x++) {
@@ -904,7 +938,7 @@ void computeTrianglesForTransvoxel(Scene &scene, int x, int y, int z) {
         glm::vec3 vertexPos = cornerPos1 * t + cornerPos2 * (1-t);
         std::cout << " Pos: (" << vertexPos[0] << "," << vertexPos[1] << "," << vertexPos[2] << ")" << std::endl;
         transEdgeVertices.push_back(vertexPos);
-        transEdgeNormals.push_back(interpolateNormal(scene, x, y, z, isorange, corner1, corner2));
+        transEdgeNormals.push_back(interpolateTransNormal(scene, x, y, z, isorange, corner1, corner2));
     }
     
     /* Create the triangles */
