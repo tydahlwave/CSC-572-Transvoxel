@@ -31,6 +31,7 @@ bool isRotating = false;
 bool isWireFrame = false;
 bool isCursorDisabled = true;
 bool lodSmoothing = true;
+bool usingTransvoxels = true;
 
 typedef struct {
     glm::vec3 pos;
@@ -193,7 +194,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             resetVolumeData(*tempScene);
         } else if (key == GLFW_KEY_R) {
             isRotating = !isRotating;
-        } else if (key == GLFW_KEY_T) {
+        } else if (key == GLFW_KEY_Y) {
             isWireFrame = !isWireFrame;
             glPolygonMode(GL_FRONT_AND_BACK, isWireFrame ? GL_LINE : GL_FILL);
         } else if (key == GLFW_KEY_M) {
@@ -211,6 +212,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             lodSmoothing = !lodSmoothing;
             setupVolumeTriangles(*tempScene);
         } else if (key == GLFW_KEY_P) {
+            setupVolumeTriangles(*tempScene);
+        } else if (key == GLFW_KEY_T) {
+            usingTransvoxels = !usingTransvoxels;
             setupVolumeTriangles(*tempScene);
         } else if (key == GLFW_KEY_W) {
             camera.velW = -CAMERA_SPEED * cameraSpeedFactor;
@@ -1011,17 +1015,27 @@ void setupVolumeTriangles(Scene &scene) {
         }
     }
     voxelScale *= 2;
-    for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
-        for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
-            for (int z = VOLUME_SIZE / 2 + voxelScale; z < VOLUME_SIZE; z += voxelScale) {
-                computeTrianglesForVoxel(scene, x, y, z);
+    if (usingTransvoxels) {
+        for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
+            for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
+                for (int z = VOLUME_SIZE / 2 + voxelScale; z < VOLUME_SIZE; z += voxelScale) {
+                    computeTrianglesForVoxel(scene, x, y, z);
+                }
             }
         }
-    }
-    for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
-        for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
-            for (int z = VOLUME_SIZE / 2; z < VOLUME_SIZE / 2 + voxelScale; z += voxelScale) {
-                computeTrianglesForTransvoxel(scene, x, y, z);
+        for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
+            for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
+                for (int z = VOLUME_SIZE / 2; z < VOLUME_SIZE / 2 + voxelScale; z += voxelScale) {
+                    computeTrianglesForTransvoxel(scene, x, y, z);
+                }
+            }
+        }
+    } else {
+        for (int x = voxelScale; x < VOLUME_SIZE; x += voxelScale) {
+            for (int y = voxelScale; y < VOLUME_SIZE; y += voxelScale) {
+                for (int z = VOLUME_SIZE / 2; z < VOLUME_SIZE; z += voxelScale) {
+                    computeTrianglesForVoxel(scene, x, y, z);
+                }
             }
         }
     }
