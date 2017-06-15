@@ -41,6 +41,10 @@ float getIsovalueFor3DSimplexNoise(OSN::Noise<3> noise, int x, int y, int z) {
     //            }
     //        }
     //    }
+    
+    isovalue += pow((float)y / VOLUME_SIZE, 2) * 25.0f - 5.0f;
+//    printf("isovalue: %f\n", isovalue);
+    
     return isovalue;
 }
 
