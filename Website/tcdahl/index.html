@@ -1,0 +1,493 @@
+<html>
+    <head>
+    <title>Transvoxel</title>
+
+  <link href="http://fonts.googleapis.com/css?family=Source+Sans+Pro:200,400,700,400italic,700italic" rel="stylesheet" type="text/css">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: white;
+      color: #333333;
+      -webkit-font-smoothing: antialiased;
+      font-size: 16px;
+      font-family: "Source Sans Pro", Helvetica;
+    }
+
+    img {
+      display: block;
+    }
+
+    em {
+      font-size: 12px;
+    }
+
+    #signature {
+      margin-left: 30px;
+      font-style: oblique;
+    }
+
+    a:link,
+    a:visited {
+      color: #165788;
+      text-decoration: none;
+    }
+
+    a:hover,
+    a:focus,
+    a:active {
+      text-decoration: underline;
+    }
+
+    .wrapper {
+      width: 660px;
+      margin: auto;
+    }
+
+    .container {
+      width: 660px;
+      margin: auto;
+    }
+
+    #content {
+      width: 650px;
+      margin: 70px auto 0px auto;
+    }
+
+    #content article {
+      margin-bottom: 150px;
+    }
+
+    #content h1,
+    #content h2 {
+      color: black;
+      margin-bottom: 30px;
+      font-weight: 200;
+      font-size: 48px;
+    }
+
+    #content h3 {
+      color: black;
+      border-bottom: 1px solid black;
+      text-transform: uppercase;
+      margin: 30px 0px 30px 0px;
+      font-size: 28px;
+      font-weight: 200;
+    }
+
+    #content p {
+      width: 100%;
+      line-height: 150%;
+      margin-bottom: 20px;
+    }
+
+    #content p:first-child {
+      font-size: 18px;
+      font-style: italic;
+      letter-spacing: 2px;
+    }
+
+    #content p:first-child:first-line {
+        font-weight: bold;
+    }
+  
+    #content ul {
+        padding-left:25px
+    }
+
+    #content ol {
+        padding-left:25px
+    }
+
+    #content #quote {
+      padding-left:25px;
+      width: 600px;
+    }
+
+    #content #pics1 {
+      padding-left: 160px;
+    }
+
+    #content #pics2 {
+      padding-left: 80px;
+    }
+
+    pre {
+      font-size: 10px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <section id="content">
+      <h1>Transvoxel</h1>
+	  <h4>Tyler Dahl - CSC 572 - Spring 2017 - Zoe Wood</h4>
+      <article>
+
+		<h3>Overview</h3>
+
+<p>For my final project in CSC 572 (Grad Computer Graphics), I chose to implement the Transvoxel Algorithm.</p>
+
+<p id="quote"><i>"The Transvoxel Algorithm is a method for seamlessly stitching together neighboring triangle meshes generated from voxel data at differing resolutions so that level of detail (LOD) can be used with large voxel-based datasets such as volumetric terrain in next-generation video games." - Eric Lengyel</i></p>
+
+<p>This algorithm was invented by Eric Lengyel back in 2009 and published in 2010. For my implementation, I wanted to procedurally generate voxelized terrain with various levels of detail (LOD) that was fully destructible in real-time.</p>
+
+<p><center>
+    <img src="TransvoxelExample.png" width="100%">
+    <em>This screenshot is taken from Eric Lengyel's C4 Engine and shows a large voxel-based terrain having three levels of detail rendered in real-time with several thousand trees and multiresolution cascaded shadow maps.</em>
+</center></p>
+
+<p>But before I dive into the implementation, let's look at some background...</p>
+
+    <h3>Links</h3>
+
+<p><ul>
+  <li><a href="#ProceduralGeneration">Procedural Generation</a></li>
+  <ul>
+    <li><a href="#2DNoise">2D Noise</a></li>
+    <li><a href="#3DNoise">3D Noise</a></li>
+  </ul>
+  <li><a href="#Transvoxel">Transvoxel Algorithm</a></li>
+  <ul>
+    <li><a href="#MarchingCubes">Modified Marching Cubes</a></li>
+    <li><a href="#LOD">Level of Detail (LOD)</a></li>
+    <ul>
+      <li><a href="#SurfaceShifting">Surface Shifting</a></li>
+    </ul>
+    <li><a href="#Transvoxels">Transvoxels</a></li>
+    <ul>
+      <li><a href="#ConcavityFixing">Concavity Fixing</a></li>
+    </ul>
+    <li><a href="#ShadingAndTexturing">Shading / Texturing</a></li>
+  </ul>
+  <li><a href="#TerrainEditing">Terrain Editing</a></li>
+  <li><a href="#Conclusion">Conclusion</a></li>
+  <li><a href="#References">References</a></li>
+</ul></p>
+
+    <h3 id="ProceduralGeneration">Procedural Generation</h3>
+
+<p>Procedural generation is the process of a computer generating content rather than a human artist or designer. This alleviates much of the time and money spent on hiring human artists and has the potential to quickly create a vast amount of interesting content.
+For this assignment, I wanted to procedurally generate terrain. To do this, I used an algorithm called Simplex Noise. You may have heard of its predecessor, Perlin Noise. Both were created by the same man, Ken Perlin, but Simplex Noise is known to be faster, have fewer artifacts, and work at higher dimensions.</p>
+
+<p>To generate terrain using Simplex Noise, either 2D or 3D Noise can be used...</p>
+
+<p id="2DNoise"><b>2D Noise</b></p>
+
+<p>To generate terrain using 2D Simplex Noise, people use what's called a 2D heightmap. This is basically a grayscale image where the pixel intensities correspond to the heights of the terrain vertices. If you have a 256x256 image, then your terrain will have 256x256 vertices and will be a perfect square. The 2D heightmap is generated using Simplex Noise by sampling the noise function at each pixel location (x, y) and storing the result in the heightmap. Using just the values from the noise algorithm may give seemingly random noise, but following a process called <a href="https://thebookofshaders.com/13/">Fractal Noise</a> can give very realistic heightmaps.</p>
+
+<table id="pics2">
+  <tr align="center">
+    <td>
+      <a href="SimplexNoise.png"><img src="SimplexNoise.png" width="100%"/></a>
+      <p align="center"><em>Simplex Noise</em></p>
+    </td>
+    <td>
+      <a href="FractalPerlinNoise.png"><img src="FractalPerlinNoise.png" width="50%"/></a>
+      <p align="center"><em>Fractal Perlin Noise</em></p>
+    </td>
+  </tr>
+</table>
+
+<p>One of the limitations of using 2D heightmaps is that no overhangs, vertical cliffs, or caves can be created, which limits the realism that can be achieved. This is fixed if we use 3D Simplex Noise.
+</p>
+
+<p id="3DNoise"><b>3D Noise</b></p>
+
+<p>To generate terrain using 3D Simplex Noise, the same process is followed as for the 2D noise, except we use a 3D grid of values (x, y, z). However, now the values can't correspond to the height of terrain vertices. Instead, each value corresponds to an isovalue of the 3D terrain surface. An isovalue is 0 if it lies exactly on the surface, negative if it is within the terrain, and positive if it is outside of the terrain. A simple example is a sphere. The isovalues in a 3D volume correspond to the distance from the surface of the sphere, with 0 being on the surface, negative values being within the sphere, and positive values being outside of the sphere.</p>
+
+<table id="pics2">
+  <tr align="center">
+    <td>
+      <a href="3DNoiseCube.png"><img src="3DNoiseCube.png" width="150%"/></a>
+      <p align="center"><em>3D Noise</em></p>
+    </td>
+    <td>
+      <a href="3DNoiseGeometry.jpg"><img src="3DNoiseGeometry.jpg" width="45%"/></a>
+      <p align="center"><em>3D Noise w/ Voxel Cubes</em></p>
+    </td>
+  </tr>
+</table>
+
+<p>To generate triangles from a volume of isovalues, several methods exist: Marching Cubes, Surface Nets, Dual Contouring, and maybe others. For this implementation, I used Marching Cubes. A good tutorial page with code examples can be found <a href="http://paulbourke.net/geometry/polygonise/">here</a>.</p>
+
+<table id="pics1">
+  <tr align="center">
+    <td>
+      <a href="MarchingCubes.gif"><img src="MarchingCubes.gif" width="100%"/></a>
+      <p align="center"><em>Marching Cubes</em></p>
+    </td>
+  </tr>
+</table>
+
+<p>And now we have voxelized terrain! YAY! :D</p>
+
+<p>This is where Transvoxel comes in...</p>
+
+    <h3 id="Transvoxel">Transvoxel Algorithm</h3>
+
+<p>The Transvoxel Algorithm can be split into several steps:</p>
+
+<p>
+<ol>
+  <li><a href="#MarchingCubes">Modified Marching Cubes</a></li>
+  <li><a href="#LOD">Level of Detail (LOD)</a></li>
+  <li><a href="#Transvoxels">Transvoxels</a></li>
+  <li><a href="#ShadingAndTexturing">Shading / Texturing</a></li>
+</ol>
+</p>
+
+    <h3 id="MarchingCubes">Modified Marching Cubes (Ch 3)</h3>
+
+<p>The first step was to implement a modified version of Marching Cubes that fixed some inconsistencies with the original tables that could create holes in the terrain in certain situations. Eric Lengyel provides the modified tables <a href="http://transvoxel.org/Transvoxel.cpp">here</a>. It was pretty straightforward to implement this. Pretty much just implement Marching Cubes, but use these tables instead.</p>
+
+<p><b>High Performance Implementation</b></p>
+
+<p>Eric Lengyel also went over a high performance implementation that focused on reusing as many vertices as possible and sectioning the terrain into 16x16x16 blocks. I don't think it would be too difficult to implement this part, but I ran out of time and skipped it as it was not necessary for my simple implementation.</p>
+
+    <h3 id="LOD">Level of Detail (LOD) (Ch 4)</h3>
+
+<p>The second step was to use LOD to simplify the terrain geometry and reduce the number of triangles being rendered based on distance from the viewer. Each LOD reduced the resolution of the volume by a factor of 2 in each dimension. This was required in order for the Transvoxel Algorithm to work properly. In general, the highest resolution LOD would be used within the closest proximity to the viewer. The farther away you go, the lower resolution the LOD would be.  Each block of 16x16x16 voxels would be a single LOD. When changing the LOD, the block would resize to contain 16x16x16 voxels at the new resolution.</p>
+
+<table id="lod">
+  <tr align="center">
+    <td>
+      <a href="TransvoxelLOD.png"><img src="TransvoxelLOD.png" width="60%"/></a>
+      <p align="center"><em>LODs</em></p>
+    </td>
+  </tr>
+</table>
+
+<p>In my implementation, to showcase the LOD, I just decreased the resolution of the LOD halfway along the Z axis. This allowed me to not worry about using blocks of voxels and to not worry about varying the LOD relative to the viewer's location.</p>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD0Hole.png"><img src="LOD0Hole.png" width="100%"/></a>
+      <p align="center"><em>LOD 0 Hole</em></p>
+    </td>
+    <td>
+      <a href="LOD1Hole.png"><img src="LOD1Hole.png" width="100%"/></a>
+      <p align="center"><em>LOD 1 Hole</em></p>
+    </td>
+    <td>
+      <a href="LOD2Hole.png"><img src="LOD2Hole.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Hole</em></p>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD0Hole_Wire.png"><img src="LOD0Hole_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 0 Hole Wireframe</em></p>
+    </td>
+    <td>
+      <a href="LOD1Hole_Wire.png"><img src="LOD1Hole_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 1 Hole Wireframe</em></p>
+    </td>
+    <td>
+      <a href="LOD2Hole_Wire.png"><img src="LOD2Hole_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Hole Wireframe</em></p>
+    </td>
+  </tr>
+</table>
+
+<p id="SurfaceShifting"><b>Surface Shifting</b></p>
+
+<p>When rendering the terrain for 2 LODs, the transition between the two LODs will usually have a hole. This is due to the sampling of the isovalues for a voxel only occurring at the corners and generating the triangle vertices based upon these values. IMAGE. The triangle vertices will vary depending on the LOD used. To remedy this problem, when calculating the triangle vertex position along an edge of a lower resolution LOD, we recurse on that edge to sample the isovalues at higher resolutions in order to precisely choose the triangle vertex location. This fixes the issue where changing LOD can cause the terrain to shift up or down, which can physically move objects that were sitting on the terrain and look bad from a viewer perspective. With this fix, even at lower resolution LODs, the terrain should not shift its position.</p>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD0Hole_Better.png"><img src="LOD0Hole_Better.png" width="100%"/></a>
+      <p align="center"><em>LOD 0 Hole w/ Surface Shifting</em></p>
+    </td>
+    <td>
+      <a href="LOD1Hole_Better.png"><img src="LOD1Hole_Better.png" width="100%"/></a>
+      <p align="center"><em>LOD 1 Hole w/ Surface Shifting</em></p>
+    </td>
+    <td>
+      <a href="LOD2Hole_Better.png"><img src="LOD2Hole_Better.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Hole w/ Surface Shifting</em></p>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD0Hole_Better_Wire.png"><img src="LOD0Hole_Better_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 0 Hole w/ Surface Shifting Wireframe</em></p>
+    </td>
+    <td>
+      <a href="LOD1Hole_Better_Wire.png"><img src="LOD1Hole_Better_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 1 Hole w/ Surface Shifting Wireframe</em></p>
+    </td>
+    <td>
+      <a href="LOD2Hole_Better_Wire.png"><img src="LOD2Hole_Better_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Hole w/ Surface Shifting Wireframe</em></p>
+    </td>
+  </tr>
+</table>
+
+    <h3 id="Transvoxels">Transvoxels (Ch 4)</h3>
+
+<p>The final step was to fill the holes generated from the LOD by using transition cells (transvoxels). This replaced any voxel along a lower resolution LOD boundary with 2+ voxels depending on how many sides were surrounded by higher resolution LOD (1 + #sides). The original voxel would still generate triangle vertices like normal, except it would only take up half of the space in whatever dimension the LOD boundary was. The other half of the space (the half  closer to the higher resolution LOD) would be filled by a transvoxel.</p>
+
+<table id="lod">
+  <tr align="center">
+    <td>
+      <a href="TransvoxelCells.png"><img src="TransvoxelCells.png" width="30%"/></a>
+      <p align="center"><em>Transition Cell Diagram</em></p>
+    </td>
+  </tr>
+</table>
+
+<p>A transvoxel consists of 13 points instead of the normal 8 (1 per corner). There are 9 points along the higher resolution LOD face, and 4 along the lower resolution LOD face. But the weird thing is that the 4 points along the lower resolution LOD face are actually the same isovalues as the 4 corners of the higher resolution LOD face. This allows much fewer possible configurations (512), which allowed Eric Lengyel to compute all possible vertex orientations for each configuration and put them into a table, just like for the Marching Cubes. The transvoxel tables are provided <a href="http://transvoxel.org/Transvoxel.cpp">here</a>.</p>
+
+<table id="lod">
+  <tr align="center">
+    <td>
+      <a href="TransvoxelCell.png"><img src="TransvoxelCell.png" width="60%"/></a>
+      <p align="center"><em>Transition Cell</em></p>
+    </td>
+  </tr>
+</table>
+
+<p>Using the transvoxel tables, the process to generate triangle vertices is the same as for the normal Modified Marching Cubes. The amount of space the transvoxel takes up within the original voxel can be whatever you want, but Eric Lengyel recommended a value of 0.5 to ensure shading is normal and that no harsh changes in elevation occur in order to fill the holes.</p>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD0NoHole.png"><img src="LOD0NoHole.png" width="100%"/></a>
+      <p align="center"><em>LOD 0 Transvoxels - No Holes</em></p>
+    </td>
+    <td>
+      <a href="LOD1NoHole.png"><img src="LOD1NoHole.png" width="100%"/></a>
+      <p align="center"><em>LOD 1 Transvoxels - No Holes</em></p>
+    </td>
+    <td>
+      <a href="LOD2NoHole.png"><img src="LOD2NoHole.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Transvoxels - No Holes</em></p>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD0NoHole_Wire.png"><img src="LOD0NoHole_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 0 Transvoxels - No Holes Wireframe</em></p>
+    </td>
+    <td>
+      <a href="LOD1NoHole_Wire.png"><img src="LOD1NoHole_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 1 Transvoxels - No Holes Wireframe</em></p>
+    </td>
+    <td>
+      <a href="LOD2NoHole_Wire.png"><img src="LOD2NoHole_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Transvoxels - No Holes Wireframe</em></p>
+    </td>
+  </tr>
+</table>
+
+<p id="ConcavityFixing"><b>Concavity Fixing</b></p>
+
+<p>Even with the transvoxels correctly filling the holes, there can still be artifacts in the sense of concavities where the transvoxels are created. Instead of the geometry smoothly transitioning from one LOD to the next, a small concavity appears at the transition boundary. Eric Lengyel uses a linear transformation in order to fix this, but I was not able to get it working before the end of my project.</p>
+
+<table>
+  <tr>
+    <td>
+      <a href="LOD2Concavity.png"><img src="LOD2Concavity.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Concavity</em></p>
+    </td>
+    <td>
+      <a href="LOD2Concavity_Wire.png"><img src="LOD2Concavity_Wire.png" width="100%"/></a>
+      <p align="center"><em>LOD 2 Concavity Wireframe</em></p>
+    </td>
+  </tr>
+</table>
+
+    <h3 id="ShadingAndTexturing">Shading / Texturing (Ch 5)</h3>
+
+<p>Unfortunately, I didn't get this far... But it essentially used triplanar texturing and normal mapping to create pretty cool shading / texturing.</p>
+
+<table>
+  <tr align="center">
+    <td>
+      <a href="TriplanarMapping.png"><img src="TriplanarMapping.png" width="100%"/></a>
+      <p align="center"><em>Triplanar Mapping</em></p>
+    </td>
+    <td>
+      <a href="NormalMapping.png"><img src="NormalMapping.png" width="85%"/></a>
+      <p align="center"><em>Triplanar + Normal Mapping</em></p>
+    </td>
+  </tr>
+</table>
+
+    <h3 id="TerrainEditing">Terrain Editing</h3>
+
+<p>The Transvoxel Algorithm does not describe how to edit the terrain in detail, so I decided to implement my own method editing tool. The simplest tool I could think of was to cast a ray in the direction the camera is facing and to create a hole or create a column in that direction for each voxel that intersected the ray. When using a voxel volume of 64x64x64, it took a couple seconds to calculate this intersection for every voxel, so I sped it up by using a naive Octree space partition to detect voxel intersections with the ray. This sped it up by a factor of 100, which was adequate for real-time modifications.</p>
+
+<table>
+  <tr>
+    <td>
+      <a href="CubeEdit2.png"><img src="CubeEdit2.png" width="100%"/></a>
+      <p align="center"><em>Editing a Cube</em></p>
+    </td>
+    <td>
+      <a href="SphereEdit1.png"><img src="SphereEdit1.png" width="100%"/></a>
+      <p align="center"><em>Editing a Sphere</em></p>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td>
+      <a href="TerrainEdit1.png"><img src="TerrainEdit1.png" width="100%"/></a>
+      <p align="center"><em>Terrain</em></p>
+    </td>
+    <td>
+      <a href="TerrainEdit2.png"><img src="TerrainEdit2.png" width="100%"/></a>
+      <p align="center"><em>Editing Terrain</em></p>
+    </td>
+  </tr>
+</table>
+
+    <h3 id="Conclusion">Conclusion</h3>
+
+<p>The transvoxel algorithm was pretty fun to implement, and has many applications in video games. I would have liked to implement the optimizations discussed in the paper as well, but I am pretty satisfied with the results I achieved. I used a 64x64x64 voxel volume for my implementation, but would have liked to try much larger volumes with LOD enabled, since LOD allows for vast landscapes to be rendered with much less computational overhead.</p>
+
+    <h3 id="References">References</h3>
+
+<p>
+<ul>
+  <li><a href="http://transvoxel.org">The Transvoxel Algorithm</a></li>
+  <li><a href="http://paulbourke.net/geometry/polygonise/">The Marching Cubes Algorithm</a></li>
+  <li><a href="http://flafla2.github.io/2014/08/09/perlinnoise.html">Perlin Noise Explanation</a></li>
+  <li><a href="http://catlikecoding.com/unity/tutorials/simplex-noise/">In-depth noise explanation (including Simplex Noise)</a></li>
+  <li><a href="https://thebookofshaders.com/13/">Another Fractal Noise explanation</a></li>
+  <li><a href="http://www.redblobgames.com/maps/terrain-from-noise/">Play with Fractal Noise</a></li>
+  <li><a href="https://github.com/tydahlwave/CSC-572-Transvoxel">Source Code on GitHub</a></li>
+</ul>
+</p>
+
+
+
+
+
+		
+      </article>
+    </section>
+  </div>
+
+</body></html>
