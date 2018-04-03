@@ -1,3 +1,10 @@
+# Transvoxel
+This is a naive implementation of [Eric Lengyel's Transvoxel algorithm](http://transvoxel.org/), originally published in 2010. It features voxelized terrain (using 3D simplex noise) with multiple levels of detail and seamless transitions between the levels of detail. I highly recommend checking out Lengyel's thesis on the algorithm if you are interested in learning more about it. Also check out [my class project website](http://users.csc.calpoly.edu/~zwood/teaching/csc572/final17/tcdahl/index.html#3DNoise), where I explain a bit more about how far I got and what my results looked like. 
+
+Keep in mind, this was implemented within a week and is not the cleanest code. I'll probably go back and clean things up at some point.
+
+Also, I built this project on top of an existing OpenGL project, which is why it contains a bunch of unnecessary stuff like the LOGLEngine, which is a fork of [Glitter](https://github.com/Polytonic/Glitter) (described below) which I hope to expand upon some day.
+
 # LOGLEngine
 ![Screenshot](http://i.imgur.com/MDo2rsy.jpg)
 
